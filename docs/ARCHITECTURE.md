@@ -1,0 +1,43 @@
+# Architecture
+
+## Goal
+
+Same routing logic whether the user runs Home Assistant or only a Docker
+container. So the engine knows nothing about Home Assistant.
+
+```
+            +------------------+
+ PowerSource|  solarprio core  |DeviceActuator
+ (measure)->|  Engine.step()   |->(commands)
+            +------------------+
+              ^              ^
+   +----------+--+        +--+----------------+
+   | HA runtime  |        | Standalone runtime|
+   | (entities)  |        | (MQTT/HTTP/Modbus)|
+   +-------------+        +-------------------+
+```
+
+## Core (`src/solarprio`)
+
+- `Device`: priority, kind (`on_off` / `proportional`), max and min power,
+  min on/off time, start margin, stay tolerance.
+- `Engine.step(available_w, now)`: walks devices by priority, hands out the
+  surplus, applies hysteresis and min on/off timers, returns one command per device.
+- `available_w` **includes what managed loads already consume**. Helpers in
+  `sources.py` compute it from grid export or from production and consumption.
+  Without this, the loop would oscillate: a heater that starts reduces the
+  measured export, which would then switch it off.
+- Time is passed in, so behavior is deterministic and testable.
+
+## Ports (`ports.py`)
+
+`PowerSource` and `DeviceActuator` are the only things a runtime must implement.
+
+## Not yet decided or built
+
+- Standalone runtime: config format, MQTT topics, Docker image.
+- HA integration: how it gets the core. Options: publish `solarprio` on PyPI and
+  list it in `manifest.json` requirements, or vendor a copy. Not decided.
+- Battery (SoC limits, charge/discharge) and EV charger (current steps,
+  minimum 6 A) need dedicated device kinds; the current two kinds do not model them.
+- Safety: failure behavior when the measurement is lost (currently undefined).

@@ -1,0 +1,11 @@
+{
+  "domain": "solarprio",
+  "name": "solarprio",
+  "version": "0.1.0",
+  "documentation": "https://example.invalid/solarprio",
+  "issue_tracker": "https://example.invalid/solarprio/issues",
+  "codeowners": [],
+  "requirements": [],
+  "iot_class": "local_polling",
+  "config_flow": false
+}
