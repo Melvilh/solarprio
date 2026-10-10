@@ -5,7 +5,9 @@
   "documentation": "https://example.invalid/solarprio",
   "issue_tracker": "https://example.invalid/solarprio/issues",
   "codeowners": [],
+  "dependencies": [],
   "requirements": [],
-  "iot_class": "local_polling",
-  "config_flow": false
+  "config_flow": true,
+  "integration_type": "service",
+  "iot_class": "calculated"
 }

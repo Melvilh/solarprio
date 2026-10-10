@@ -41,14 +41,31 @@ container. So the engine knows nothing about Home Assistant.
 - `controller.py`: the loop. Sends only changed commands (plus a periodic resend),
   sends concurrently, retries failed sends, handles measurement loss, switches off on shutdown.
 
+## Home Assistant integration (`custom_components/solarprio`)
+
+- HACS installs only `custom_components/<domain>`, so the integration carries a copy of the
+  core in `core/`, made by `scripts/sync_core.py`. A test fails if the copy drifts from `src/`.
+  No PyPI package is needed.
+- `config_flow.py`: measurement source. Options flow: add / edit / remove devices and their
+  priority number.
+- `coordinator.py`: reads the sensors (kW converted to W, unavailable or too-old values count as
+  lost), runs the engine, calls services (`homeassistant.turn_on/off`, `light.turn_on`,
+  `number.set_value`). Loads are switched off when the entry is unloaded and when HA stops.
+- Entities: `Routing` switch (restored across restarts), available / routed power, status,
+  one command sensor per device.
+
 ## Not yet decided or built
+
+- HA integration: priority is a number in a form, not yet a drag-and-drop panel. After a HA
+  restart the engine starts with all loads assumed off, so the first cycle can under-estimate
+  the surplus until loads are commanded again. Not validated with HACS / hassfest; the
+  `documentation` and `issue_tracker` URLs in `manifest.json` are placeholders.
+- Proportional devices are limited to `light` and `number`/`input_number` entities.
 
 - Runtime tested with a Python MQTT broker (amqtt), not with Mosquitto, and the Docker
   image has not been built yet (no Docker daemon was available).
 - No authentication/TLS options for MQTT beyond username/password.
 - HTTP actuator: no custom headers or body.
-- HA integration: how it gets the core. Options: publish `solarprio` on PyPI and
-  list it in `manifest.json` requirements, or vendor a copy. Not decided.
 - Battery (SoC limits, charge/discharge) and EV charger (current steps,
   minimum 6 A) need dedicated device kinds; the current two kinds do not model them.
 - Safety: measurement loss is handled (`on_stale`), but the behavior when a device stops

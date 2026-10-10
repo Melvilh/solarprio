@@ -121,3 +121,12 @@ def test_closed_loop_does_not_oscillate_with_export_measurement():
         available = available_from_export(export, routed)
         engine.step(available, now=t)
     assert engine.state("dimmer").power_w == 2000
+
+
+def test_reset_forgets_commands_and_timers():
+    engine = Engine([heater(min_on_s=600)])
+    engine.step(2000, now=0)
+    engine.reset()
+    assert engine.routed_w == 0
+    engine.step(0, now=1)  # no min_on hold after reset
+    assert engine.routed_w == 0

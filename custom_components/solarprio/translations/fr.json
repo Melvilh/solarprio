@@ -1,0 +1,95 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mesure",
+        "data": {
+          "mode": "Comment le surplus est-il mesuré ?"
+        },
+        "description": "'export' : un capteur de puissance réseau (positif = injection). 'production' : capteurs de production et de consommation totale."
+      },
+      "entities": {
+        "title": "Capteurs",
+        "data": {
+          "export_entity": "Capteur de puissance réseau",
+          "invert": "Mon compteur indique le soutirage en positif",
+          "production_entity": "Capteur de production",
+          "consumption_entity": "Capteur de consommation totale",
+          "interval_s": "Période de régulation",
+          "stale_after_s": "Mesure considérée perdue après",
+          "on_stale": "Quand la mesure est perdue"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "solarprio est déjà configuré"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Appareils",
+        "menu_options": {
+          "add_device": "Ajouter un appareil",
+          "edit_select": "Modifier un appareil",
+          "remove_device": "Supprimer des appareils"
+        }
+      },
+      "edit_select": {
+        "title": "Modifier un appareil",
+        "data": {
+          "device": "Appareil"
+        }
+      },
+      "remove_device": {
+        "title": "Supprimer des appareils",
+        "data": {
+          "devices": "Appareils à supprimer"
+        }
+      },
+      "add_device": {
+        "title": "Ajouter un appareil",
+        "data": {
+          "name": "Nom",
+          "entity_id": "Entité à piloter",
+          "kind": "Type",
+          "priority": "Priorité (plus petit = servi en premier)",
+          "power_w": "Puissance maximale",
+          "min_power_w": "Puissance minimale (proportionnel)",
+          "scale": "Valeur envoyée aux entités number",
+          "min_on_s": "Durée minimale de marche",
+          "min_off_s": "Durée minimale d'arrêt",
+          "start_margin_w": "Surplus supplémentaire pour démarrer",
+          "stay_tolerance_w": "Soutirage toléré pour rester allumé"
+        },
+        "data_description": {
+          "kind": "on_off : tout ou rien. proportional : entité light ou number.",
+          "scale": "percent : 0-100. watts : puissance en W."
+        }
+      },
+      "edit_device": {
+        "title": "Modifier un appareil",
+        "data": {
+          "name": "Nom",
+          "entity_id": "Entité à piloter",
+          "kind": "Type",
+          "priority": "Priorité (plus petit = servi en premier)",
+          "power_w": "Puissance maximale",
+          "min_power_w": "Puissance minimale (proportionnel)",
+          "scale": "Valeur envoyée aux entités number",
+          "min_on_s": "Durée minimale de marche",
+          "min_off_s": "Durée minimale d'arrêt",
+          "start_margin_w": "Surplus supplémentaire pour démarrer",
+          "stay_tolerance_w": "Soutirage toléré pour rester allumé"
+        },
+        "data_description": {
+          "kind": "on_off : tout ou rien. proportional : entité light ou number.",
+          "scale": "percent : 0-100. watts : puissance en W."
+        }
+      }
+    },
+    "error": {
+      "invalid_device": "Appareil invalide : la puissance doit être > 0 et la puissance minimale ne peut pas la dépasser."
+    }
+  }
+}

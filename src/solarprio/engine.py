@@ -33,6 +33,11 @@ class Engine:
     def state(self, device_id: str) -> DeviceState:
         return self._states[device_id]
 
+    def reset(self) -> None:
+        """Forget all commands and timers (loads were switched off from outside the engine)."""
+        for device_id in self._states:
+            self._states[device_id] = DeviceState()
+
     def step(self, available_w: float, now: float) -> dict[str, float]:
         """Allocate ``available_w`` by priority and return the new command per device.
 

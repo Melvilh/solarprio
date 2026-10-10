@@ -1,0 +1,95 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Measurement",
+        "data": {
+          "mode": "How is the surplus measured?"
+        },
+        "description": "'export': one sensor with grid power (positive = export). 'production': production and total consumption sensors."
+      },
+      "entities": {
+        "title": "Sensors",
+        "data": {
+          "export_entity": "Grid power sensor",
+          "invert": "My meter reports import as positive",
+          "production_entity": "Production sensor",
+          "consumption_entity": "Total consumption sensor",
+          "interval_s": "Control period",
+          "stale_after_s": "Measurement considered lost after",
+          "on_stale": "When the measurement is lost"
+        }
+      }
+    },
+    "abort": {
+      "already_configured": "solarprio is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Devices",
+        "menu_options": {
+          "add_device": "Add a device",
+          "edit_select": "Edit a device",
+          "remove_device": "Remove devices"
+        }
+      },
+      "edit_select": {
+        "title": "Edit a device",
+        "data": {
+          "device": "Device"
+        }
+      },
+      "remove_device": {
+        "title": "Remove devices",
+        "data": {
+          "devices": "Devices to remove"
+        }
+      },
+      "add_device": {
+        "title": "Add a device",
+        "data": {
+          "name": "Name",
+          "entity_id": "Entity to control",
+          "kind": "Type",
+          "priority": "Priority (lower = served first)",
+          "power_w": "Maximum power",
+          "min_power_w": "Minimum power (proportional)",
+          "scale": "Value sent to number entities",
+          "min_on_s": "Minimum run time",
+          "min_off_s": "Minimum rest time",
+          "start_margin_w": "Extra surplus needed to start",
+          "stay_tolerance_w": "Grid import tolerated to keep running"
+        },
+        "data_description": {
+          "kind": "on_off: all or nothing. proportional: light or number entity.",
+          "scale": "percent: 0-100. watts: power in W."
+        }
+      },
+      "edit_device": {
+        "title": "Edit a device",
+        "data": {
+          "name": "Name",
+          "entity_id": "Entity to control",
+          "kind": "Type",
+          "priority": "Priority (lower = served first)",
+          "power_w": "Maximum power",
+          "min_power_w": "Minimum power (proportional)",
+          "scale": "Value sent to number entities",
+          "min_on_s": "Minimum run time",
+          "min_off_s": "Minimum rest time",
+          "start_margin_w": "Extra surplus needed to start",
+          "stay_tolerance_w": "Grid import tolerated to keep running"
+        },
+        "data_description": {
+          "kind": "on_off: all or nothing. proportional: light or number entity.",
+          "scale": "percent: 0-100. watts: power in W."
+        }
+      }
+    },
+    "error": {
+      "invalid_device": "Invalid device: power must be > 0 and minimum power cannot exceed it."
+    }
+  }
+}
