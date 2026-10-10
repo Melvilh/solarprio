@@ -88,6 +88,11 @@ Behaviours worth knowing:
 - **Not supported:** automatic 1-phase/3-phase switching (hardware specific; some chargers need a re-plug to
   go back to 3 phases), discharge control of the battery, charging a battery in two priority stages.
 
+## Hardware notes
+
+- **Victron** (GX device, Multi / Quattro, EV Charging Station): see [docs/VICTRON.md](docs/VICTRON.md) and
+  `config.victron.example.toml`. Built from Victron's documentation and tested only against a simulated GX device.
+
 ## What is and is not verified
 
 Verified by automated tests: the allocation engine (including mutation checks on the safety rules), the

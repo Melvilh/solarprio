@@ -29,12 +29,16 @@ class MqttConfig:
     username: str | None = None
     password: str | None = None
     client_id: str = "solarprio"
+    # Some brokers (Victron Venus OS) only publish values while a keep-alive is received periodically.
+    keepalive_topic: str | None = None
+    keepalive_interval_s: float = 30.0
+    keepalive_payload: str = '{"keepalive-options": ["suppress-republish"]}'  # sent after the first (empty) one
 
 
 @dataclass
 class SourceConfig:
     mode: str  # "export" or "production"
-    topics: dict[str, str]  # export: {"export"}; production: {"production", "consumption"}
+    topics: dict[str, list[str]]  # export: {"export"}; production: {"production", "consumption"}; several = summed
     field: str | None = None  # JSON field to extract from payloads, if payloads are JSON
     invert: bool = False  # export: meter reports import as positive
 
@@ -46,6 +50,10 @@ class ReadingsConfig:
     measured_topic: str | None = None
     soc_topic: str | None = None
     connected_topic: str | None = None
+    # Payload words meaning plugged / unplugged; default words (on/off, true/false, 1/0...) apply when unset.
+    # A payload in neither list counts as "unknown", which the engine treats as plugged in.
+    connected_values: list[str] | None = None
+    disconnected_values: list[str] | None = None
     field: str | None = None  # JSON field to extract from payloads, if payloads are JSON
     measured_unit: str = "W"  # "W" or "kW"
 
@@ -79,7 +87,12 @@ def parse_config(raw: dict[str, Any]) -> Config:
     if runtime.interval_s <= 0:
         raise ConfigError("runtime.interval_s must be > 0")
 
-    mqtt = MqttConfig(**raw.get("mqtt", {}))
+    try:
+        mqtt = MqttConfig(**raw.get("mqtt", {}))
+    except TypeError as e:
+        raise ConfigError(f"invalid [mqtt] section: {e}") from e
+    if mqtt.keepalive_interval_s <= 0:
+        raise ConfigError("mqtt.keepalive_interval_s must be > 0")
 
     src = raw.get("source")
     if not src:
@@ -94,9 +107,16 @@ def parse_config(raw: dict[str, Any]) -> Config:
     for key in needed:
         if key not in src:
             raise ConfigError(f"source.{key} is required in {mode} mode")
+    topics: dict[str, list[str]] = {}
+    for key in needed:
+        value = src[key]
+        names = [value] if isinstance(value, str) else value
+        if not isinstance(names, list) or not names or not all(isinstance(n, str) and n for n in names):
+            raise ConfigError(f"source.{key} must be a topic or a non-empty list of topics")
+        topics[key.removesuffix("_topic")] = names
     source = SourceConfig(
         mode=mode,
-        topics={k.removesuffix("_topic"): src[k] for k in needed},
+        topics=topics,
         field=src.get("field"),
         invert=bool(src.get("invert", False)),
     )

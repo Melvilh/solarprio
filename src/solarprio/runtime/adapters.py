@@ -21,21 +21,29 @@ class MeasurementUnavailable(Exception):
 class MqttPowerSource:
     def __init__(self, bus: MqttBus, cfg: SourceConfig, stale_after_s: float) -> None:
         self._bus, self._cfg, self._stale_after_s = bus, cfg, stale_after_s
-        for topic in cfg.topics.values():
-            bus.subscribe(topic)
+        for topics in cfg.topics.values():
+            for topic in topics:
+                bus.subscribe(topic)
 
     def _read(self, key: str) -> float:
-        topic = self._cfg.topics[key]
-        item = self._bus.latest(topic)
-        if item is None:
-            raise MeasurementUnavailable(f"no value received yet on {topic}")
-        payload, age = item
-        if age > self._stale_after_s:
-            raise MeasurementUnavailable(f"value on {topic} is {age:.0f}s old")
-        try:
-            return parse_number(payload, self._cfg.field)
-        except (ValueError, KeyError, TypeError) as e:
-            raise MeasurementUnavailable(f"cannot parse payload on {topic}: {e}") from e
+        """Value of a quantity; when several topics are configured (one per phase) they are summed.
+
+        Every topic must be fresh and numeric: a missing phase makes the whole measurement unavailable
+        rather than silently under-counting.
+        """
+        total = 0.0
+        for topic in self._cfg.topics[key]:
+            item = self._bus.latest(topic)
+            if item is None:
+                raise MeasurementUnavailable(f"no value received yet on {topic}")
+            payload, age = item
+            if age > self._stale_after_s:
+                raise MeasurementUnavailable(f"value on {topic} is {age:.0f}s old")
+            try:
+                total += parse_number(payload, self._cfg.field)
+            except (ValueError, KeyError, TypeError) as e:
+                raise MeasurementUnavailable(f"cannot parse payload on {topic}: {e}") from e
+        return total
 
     async def read_available_w(self, routed_w: float) -> float:
         if self._cfg.mode == "export":
@@ -84,7 +92,14 @@ class MqttReadings:
                     pass
             if (raw := self._fresh(cfg.connected_topic)) is not None:
                 word = raw.decode(errors="ignore").strip().strip('"').lower()
-                connected = True if word in TRUTHY else False if word in FALSY else None
+                if cfg.field:  # JSON payload such as {"value": 2}
+                    try:
+                        word = str(parse_number(raw, cfg.field)).removesuffix(".0")
+                    except (ValueError, KeyError, TypeError):
+                        word = ""
+                yes = {w.lower() for w in cfg.connected_values} if cfg.connected_values is not None else TRUTHY
+                no = {w.lower() for w in cfg.disconnected_values} if cfg.disconnected_values is not None else FALSY
+                connected = True if word in yes else False if word in no else None
             if measured is not None or soc is not None or connected is not None:
                 out[device_id] = DeviceReading(measured_w=measured, soc=soc, connected=connected)
         return out
@@ -93,7 +108,8 @@ class MqttReadings:
 class MqttActuator:
     """Publishes a command per device.
 
-    Options: ``topic`` (required); ``payload_on`` / ``payload_off`` for on/off loads;
+    Options: ``topic`` (required); ``payload_on`` / ``payload_off`` for on/off loads (any text, e.g. JSON);
+    ``payload_template`` wraps a numeric command, ``{value}`` being replaced (e.g. ``{"value": {value}}``);
     ``scale`` for the others: ``"percent"`` (proportional default), ``"watts"`` (battery default),
     ``"amps"`` (EV charger default). An EV charger may also have a ``switch_topic`` (same payload options),
     switched on after the current is set and off when the charge stops; without it 0 A pauses the charger.
@@ -116,6 +132,8 @@ class MqttActuator:
             "amps": f"{dev.current_for(power_w):.1f}",
             "percent": f"{power_w / dev.power_w * 100:.1f}",
         }[scale]
+        if "payload_template" in opt:
+            value = opt["payload_template"].replace("{value}", value)  # not str.format: JSON braces
         switch_topic = opt.get("switch_topic")
         if dev.kind is DeviceKind.EV_CHARGER and switch_topic:
             if power_w > 0:

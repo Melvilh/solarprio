@@ -15,6 +15,10 @@ First public version (alpha).
 - Standalone runtime with MQTT and HTTP adapters and a Docker image definition.
 - Brand icon (`brand/icon.png`, used by Home Assistant 2026.3 and later).
 
+- Standalone runtime: periodic MQTT keep-alive (needed by Victron Venus OS), grid power summed over several topics
+  (one per phase), JSON command payloads (`payload_template`), explicit plugged/unplugged values for numeric status codes.
+- Victron example configuration and guide (simulated device only, not tested on real hardware).
+
 ### Safety behaviour
 - Undelivered commands (broker down, service error) are retried and never counted as routed power.
 - On shutdown every configured device is switched off, and the process exits non-zero if some may still be on.

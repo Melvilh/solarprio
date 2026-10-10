@@ -12,6 +12,7 @@ from ..engine import Engine
 from .adapters import DispatchActuator, MqttPowerSource, MqttReadings
 from .config import ConfigError, load_config
 from .controller import Controller
+from .keepalive import keepalive_loop
 from .mqtt_bus import MqttBus
 
 log = logging.getLogger("solarprio")
@@ -31,10 +32,18 @@ async def run(config_path: str) -> list[str]:
         loop.add_signal_handler(sig, stop.set)
 
     bus.start()
+    keepalive = None
+    if cfg.mqtt.keepalive_topic:
+        keepalive = asyncio.create_task(
+            keepalive_loop(bus, cfg.mqtt.keepalive_topic, cfg.mqtt.keepalive_interval_s, cfg.mqtt.keepalive_payload, stop)
+        )
     log.info("started with %d device(s), interval %ss", len(cfg.devices), cfg.runtime.interval_s)
     try:
         failed = await controller.run(stop)
     finally:
+        stop.set()  # also ends the keep-alive loop if the controller stopped for another reason
+        if keepalive:
+            await keepalive
         bus.stop()
     if failed:
         log.error("stopped, but these loads may still be on: %s", ", ".join(failed))

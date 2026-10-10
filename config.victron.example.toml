@@ -1,0 +1,66 @@
+# Example: standalone runtime talking to a Victron GX device (Cerbo GX, Venus OS) over its built-in MQTT broker.
+#
+# NOT TESTED ON REAL VICTRON HARDWARE. Topic names and payloads follow Victron's documentation
+# (dbus-flashmq README and the Venus OS D-Bus list), exercised against a simulated GX device only.
+# Replace every <...> value. Read docs/VICTRON.md first, in particular "Check the sign of the grid power".
+
+[runtime]
+interval_s = 5
+stale_after_s = 30
+on_stale = "off"
+
+[mqtt]
+host = "192.168.1.60"        # IP of the GX device; enable MQTT on LAN in its settings
+port = 1883
+# Venus OS only publishes values while it receives a keep-alive (it stops after 60 s without one).
+keepalive_topic = "R/<PORTAL_ID>/keepalive"
+keepalive_interval_s = 30
+
+[source]
+# Grid power per phase, summed. List only the phases your installation has: a phase that does not exist
+# publishes null, which makes the whole measurement unavailable (and every load goes off).
+mode = "export"
+export_topic = [
+  "N/<PORTAL_ID>/system/0/Ac/Grid/L1/Power",
+  "N/<PORTAL_ID>/system/0/Ac/Grid/L2/Power",
+  "N/<PORTAL_ID>/system/0/Ac/Grid/L3/Power",
+]
+field = "value"              # Victron payloads look like {"value": 123.4}
+# Victron's documentation does not state the sign of the grid power. solarprio wants "positive = export".
+# If your grid power is NEGATIVE while you export (the usual convention), set invert = true. VERIFY IT:
+# see docs/VICTRON.md.
+invert = true
+
+# ---- EV charging station (Victron EVCS, through the GX device) ----
+# The EVCS must be in Manual mode (/Mode = 0): /SetCurrent is only controllable in Manual mode.
+# <EVCS_INSTANCE> is the device instance of the charger (see the MQTT topics under N/<PORTAL_ID>/evcharger/).
+[[device]]
+id = "evcs"
+name = "Victron EVCS"
+priority = 1
+kind = "ev_charger"
+phases = 1                   # 1 or 3: set what your installation really uses
+voltage_v = 230
+min_current_a = 6            # check the minimum of your charger (/MinCurrent)
+max_current_a = 16
+min_on_s = 300
+start_margin_w = 100
+  [device.actuator]
+  type = "mqtt"
+  topic = "W/<PORTAL_ID>/evcharger/<EVCS_INSTANCE>/SetCurrent"
+  payload_template = '{"value": {value}}'
+  switch_topic = "W/<PORTAL_ID>/evcharger/<EVCS_INSTANCE>/StartStop"
+  payload_on = '{"value": 1}'
+  payload_off = '{"value": 0}'
+  [device.readings]
+  field = "value"
+  connected_topic = "N/<PORTAL_ID>/evcharger/<EVCS_INSTANCE>/Status"
+  disconnected_values = ["0"]                                    # 0 = Disconnected
+  connected_values = ["1", "2", "3", "4", "5", "6", "7", "21", "22", "23", "24"]
+  measured_topic = "N/<PORTAL_ID>/evcharger/<EVCS_INSTANCE>/Ac/Power"
+
+# ---- Battery: NOT managed here ----
+# With ESS the Victron system charges its battery first by itself, and only what the battery cannot absorb
+# is exported; that export is the surplus solarprio routes to the loads above. Managing the battery from
+# solarprio (for example by limiting its charge power) is possible in principle but is not verified
+# and not provided as a ready-made example. See docs/VICTRON.md.

@@ -1,67 +1,13 @@
 """End-to-end test: real MQTT broker (amqtt) + the real runtime + a paho client playing meter and device."""
 
 import asyncio
-import socket
-import threading
 import time
 
 import paho.mqtt.client as mqtt
 import pytest
 
+from fakes import wait_for
 from solarprio.runtime.app import run
-
-
-def free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
-
-
-@pytest.fixture
-def broker_port():
-    from amqtt.broker import Broker
-
-    port = free_port()
-    ready, stop = threading.Event(), threading.Event()
-    errors: list[Exception] = []
-
-    def serve():
-        async def main():
-            broker = Broker({
-                "listeners": {"default": {"type": "tcp", "bind": f"127.0.0.1:{port}"}},
-                "sys_interval": 0,
-                "auth": {"allow-anonymous": True, "plugins": ["auth_anonymous"]},
-                "topic-check": {"enabled": False},
-            })
-            await broker.start()
-            ready.set()
-            while not stop.is_set():
-                await asyncio.sleep(0.05)
-            await broker.shutdown()
-
-        try:
-            asyncio.run(main())
-        except Exception as e:  # noqa: BLE001
-            errors.append(e)
-            ready.set()
-
-    t = threading.Thread(target=serve, daemon=True)
-    t.start()
-    assert ready.wait(10)
-    if errors:
-        pytest.skip(f"test broker could not start: {errors[0]!r}")
-    yield port
-    stop.set()
-    t.join(5)
-
-
-def wait_for(predicate, timeout=10.0):
-    end = time.monotonic() + timeout
-    while time.monotonic() < end:
-        if predicate():
-            return True
-        time.sleep(0.05)
-    return False
 
 
 def test_surplus_is_routed_by_priority_over_real_mqtt(broker_port, tmp_path):

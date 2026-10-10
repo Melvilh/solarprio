@@ -41,6 +41,7 @@ class MqttBus:
         self._topics: set[str] = set()
         self._pending: list[mqtt.MQTTMessageInfo] = []
         self._connected = threading.Event()
+        self.connections = 0  # incremented on every (re)connection, so callers can detect a reconnect
         self._client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id=cfg.client_id)
         if cfg.username:
             self._client.username_pw_set(cfg.username, cfg.password)
@@ -93,6 +94,7 @@ class MqttBus:
         if reason_code != 0:
             log.error("MQTT connection refused: %s", reason_code)
             return
+        self.connections += 1
         self._connected.set()
         for topic in self._topics:  # also re-subscribes after a reconnect
             client.subscribe(topic)

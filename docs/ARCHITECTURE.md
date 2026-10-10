@@ -44,6 +44,8 @@ container. So the engine knows nothing about Home Assistant.
 - `mqtt_bus.py`: paho-mqtt wrapper caching the latest value (with age) per topic.
 - `adapters.py`: `MqttPowerSource`, `MqttReadings` (SoC / plug / measured power topics), `MqttActuator`
   (watts, percent or amps; EV `switch_topic`), `HttpActuator` (`{power_w}`, `{percent}`, `{amps}`, `{state}`).
+- `keepalive.py`: periodic keep-alive for brokers that only publish on request (Victron); the first request and the first
+  after a reconnection are empty (full republish), later ones suppress the republish.
 - `controller.py`: the loop. A command that cannot be delivered is retried next cycle and the engine is rolled back
   (`Engine.rollback_command`) so it never counts undelivered power as routed. On shutdown every configured device is
   addressed, not only those commanded in this run; the process exits non-zero if some may still be on.

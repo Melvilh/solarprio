@@ -24,7 +24,7 @@ def test_example_config_is_valid():
     cfg = load_config(ROOT / "config.example.toml")
     assert [d.id for d in cfg.devices] == ["dimmer_heater", "pool_pump", "server", "home_battery", "wallbox"]
     assert cfg.actuators["server"].type == "http"
-    assert cfg.source.topics == {"export": "house/grid/power_w"}
+    assert cfg.source.topics == {"export": ["house/grid/power_w"]}
 
 
 def test_production_mode_needs_both_topics():
@@ -84,3 +84,14 @@ def test_actuators_are_checked_at_load_time():
 
 def minimal_with(device):
     return {"source": {"mode": "export", "export_topic": "g"}, "device": [device]}
+
+
+def test_victron_example_config_is_valid_and_has_the_victron_specifics():
+    cfg = load_config(ROOT / "config.victron.example.toml")
+    assert cfg.mqtt.keepalive_topic == "R/<PORTAL_ID>/keepalive" and cfg.mqtt.keepalive_interval_s < 60
+    assert len(cfg.source.topics["export"]) == 3 and cfg.source.field == "value" and cfg.source.invert
+    ev = cfg.devices[0]
+    assert (ev.min_power_w, ev.power_w) == (1380, 3680)
+    opts = cfg.actuators["evcs"].options
+    assert opts["payload_template"] == '{"value": {value}}' and opts["payload_on"] == '{"value": 1}'
+    assert cfg.readings["evcs"].disconnected_values == ["0"]
