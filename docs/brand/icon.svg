@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!-- Provisional icon: sun + three priority bars of decreasing length. Replace with the final brand logo. -->
+  <circle cx="84" cy="84" r="44" fill="#F5A623"/>
+  <g stroke="#F5A623" stroke-width="12" stroke-linecap="round">
+    <line x1="84" y1="12" x2="84" y2="26"/><line x1="84" y1="142" x2="84" y2="156"/>
+    <line x1="12" y1="84" x2="26" y2="84"/><line x1="142" y1="84" x2="156" y2="84"/>
+    <line x1="33" y1="33" x2="43" y2="43"/><line x1="125" y1="125" x2="135" y2="135"/>
+    <line x1="33" y1="135" x2="43" y2="125"/><line x1="125" y1="43" x2="135" y2="33"/>
+  </g>
+  <g fill="#1E88E5">
+    <rect x="96" y="176" width="152" height="20" rx="10"/>
+    <rect x="96" y="206" width="112" height="20" rx="10" opacity=".8"/>
+    <rect x="96" y="236" width="72" height="14" rx="7" opacity=".6"/>
+  </g>
+</svg>

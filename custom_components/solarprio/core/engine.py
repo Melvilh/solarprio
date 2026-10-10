@@ -68,6 +68,13 @@ class Engine:
     def set_enabled(self, device_id: str, enabled: bool) -> None:
         self._devices[device_id].enabled = enabled
 
+    def rollback_command(self, device_id: str, confirmed_w: float) -> None:
+        """A command could not be delivered: the device is still at ``confirmed_w``.
+
+        Keeps ``routed_w`` and the on/off logic truthful; min on/off timers are left as they are.
+        """
+        self._states[device_id].power_w = confirmed_w
+
     def reset(self) -> None:
         """Forget all commands and timers (loads were switched off from outside the engine)."""
         for device_id in self._states:

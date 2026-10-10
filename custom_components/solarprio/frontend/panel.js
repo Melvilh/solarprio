@@ -199,7 +199,7 @@ class SolarPrioPanel extends HTMLElement {
     if (target < 0 || target >= ids.length) return;
     [ids[index], ids[target]] = [ids[target], ids[index]];
     this._commitOrder(ids).then(() => {
-      const handle = this.shadowRoot.querySelector(`li[data-id="${ids[target]}"] .${delta < 0 ? "up" : "down"}`);
+      const handle = this.shadowRoot.querySelector(`li[data-id="${CSS.escape(ids[target])}"] .${delta < 0 ? "up" : "down"}`);
       if (handle && !handle.disabled) handle.focus();
     });
   }
@@ -320,7 +320,7 @@ class SolarPrioPanel extends HTMLElement {
       const rows = s.devices
         .map(
           (d, i) => `
-          <li class="row" data-id="${d.id}" data-index="${i}">
+          <li class="row" data-id="${esc(d.id)}" data-index="${i}">
             <button class="handle" data-index="${i}" aria-label="${t.drag}" title="${t.drag}">${GRIP}</button>
             <div class="rank">${i + 1}</div>
             <div class="info">
@@ -333,7 +333,7 @@ class SolarPrioPanel extends HTMLElement {
               <button class="icon up" data-index="${i}" aria-label="${t.up}" title="${t.up}" ${i === 0 ? "disabled" : ""}>▲</button>
               <button class="icon down" data-index="${i}" aria-label="${t.down}" title="${t.down}" ${i === s.devices.length - 1 ? "disabled" : ""}>▼</button>
             </div>
-            <label class="switch"><input type="checkbox" class="dev-enabled" data-id="${d.id}" aria-label="${t.enable} ${esc(d.name)}"><span></span></label>
+            <label class="switch"><input type="checkbox" class="dev-enabled" data-id="${esc(d.id)}" aria-label="${t.enable} ${esc(d.name)}"><span></span></label>
           </li>`,
         )
         .join("");

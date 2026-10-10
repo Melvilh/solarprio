@@ -146,3 +146,11 @@ def test_disabled_device_is_switched_off_on_next_step():
     engine.step(2000, now=0)
     engine.set_enabled("heater", False)
     assert engine.step(2000, now=1)["heater"] == 0
+
+
+def test_rollback_command_keeps_routed_power_truthful():
+    engine = Engine([heater()])
+    assert engine.step(2000, now=0)["heater"] == 2000
+    engine.rollback_command("heater", 0.0)  # the "on" command never reached the device
+    assert engine.routed_w == 0
+    assert not engine.state("heater").on

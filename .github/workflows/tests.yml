@@ -1,0 +1,36 @@
+name: Tests
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  engine-and-runtime:
+    name: Engine and standalone runtime
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e ".[dev]"
+      - run: pytest -q
+      - name: The copy of the engine inside the integration is in sync
+        run: |
+          python scripts/sync_core.py
+          git diff --exit-code -- custom_components
+
+  home-assistant:
+    name: Home Assistant integration
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -r tests_ha/requirements.txt
+      - run: python -m pytest tests_ha -p no:sugar -o asyncio_mode=auto -o pythonpath=". src" -o testpaths=tests_ha -q

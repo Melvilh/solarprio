@@ -101,10 +101,11 @@ async def test_set_routing_from_panel(hass: HomeAssistant, hass_ws_client):
     assert resp["result"]["routing_enabled"] is False and resp["result"]["status"] == "disabled"
 
 
-async def test_write_commands_require_admin(hass: HomeAssistant, hass_ws_client, hass_read_only_access_token):
+async def test_all_commands_require_admin(hass: HomeAssistant, hass_ws_client, hass_read_only_access_token):
     await prepare(hass)
     client = await hass_ws_client(hass, hass_read_only_access_token)
     for msg in (
+        {"type": "solarprio/state"},
         {"type": "solarprio/reorder", "ids": ["pump", "dimmer"]},
         {"type": "solarprio/set_routing", "enabled": False},
         {"type": "solarprio/set_device_enabled", "device_id": "pump", "enabled": False},

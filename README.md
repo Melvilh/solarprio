@@ -1,24 +1,68 @@
 # solarprio (provisional name)
 
-Open-source solar surplus router: choose the priority order of your loads
-(water heater, EV charger, battery, heat pump, servers...) and let the surplus
-flow to them automatically.
+**Route your solar surplus where you want it, in the order you choose.**
+Set the priority of your loads (water heater, EV charger, battery, heat pump, servers...) by dragging
+them in a list, and the surplus flows to them automatically. Open source, works inside Home Assistant
+or standalone in Docker.
 
-**Status: early prototype.** The core engine and the standalone runtime (Docker, MQTT/HTTP)
-work and are tested. The Home Assistant integration works in automated tests
-(Home Assistant 2026.2.3) but has not been tried in a real installation yet.
+![Priority panel in Home Assistant](docs/img/panel-priorities.png)
 
-## Design
+> **Status: alpha (0.1).** It works in automated tests and against a real Home Assistant with simulated
+> devices. It has **not** been run on a real installation with real inverters, batteries or wallboxes.
+> See [What is and is not verified](#what-is-and-is-not-verified) before you trust it with your hardware.
 
-One engine, several ways to run it:
+## Safety
 
-| Layer | Role | Status |
-|---|---|---|
-| `src/solarprio` | Pure Python engine, no Home Assistant dependency | working, tested |
-| `src/solarprio/runtime` + Docker | MQTT source, MQTT/HTTP actuators, no Home Assistant needed | working, tested without Docker |
-| `custom_components/solarprio` | Home Assistant integration (HACS), carries a copy of the core | working in tests, not yet tried on a real HA |
+This software switches electrical loads. It is **not a safety device** and comes with no warranty
+(see the license). Electrical work belongs to qualified people.
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+- Keep your hardware's own protections (breakers, thermal cut-offs, charger and battery management systems).
+  Do not rely on this software to protect a load.
+- If the power measurement is lost, loads are switched **off** by default (`on_stale`); a battery charge
+  setpoint goes to 0 W. Read [Device types](#device-types) for what that means for your equipment.
+- Test with a low-risk load first and watch it before leaving it unattended.
+
+## Features
+
+- **One ordered list** of devices; drag to change priority, takes effect immediately without switching anything off.
+- **Device types:** on/off loads, adjustable loads (dimmer, router), batteries, EV chargers.
+- **Safe by default:** minimum run/rest times, start margins, hysteresis, loss-of-measurement handling,
+  everything switched off on shutdown.
+- **Home Assistant integration** with a sidebar panel (English and French) or a **standalone Docker runtime**
+  (MQTT and HTTP) with the same engine.
+- The engine is plain Python with no Home Assistant dependency, and is tested in isolation.
+
+## Install
+
+### Home Assistant (HACS, custom repository)
+
+1. In HACS, open the menu (three dots) > **Custom repositories**.
+2. Add `https://github.com/OWNER/REPO` as type **Integration**, then **Add**.
+3. Download the integration from HACS and restart Home Assistant.
+4. *Settings > Devices & services > Add integration > solarprio.*
+
+Manual install: copy `custom_components/solarprio` to your Home Assistant `config/custom_components/`
+and restart.
+
+Setup: pick the grid power sensor (positive = export; or production + consumption sensors), then use
+**Configure** to add devices. Choose the type first, then fill the form for that type. A **solarprio**
+entry appears in the sidebar (admins only) to order devices by drag and drop (mouse, touch, or the arrows),
+enable or disable each device, and turn routing on or off.
+
+> The icon in `brand/` is used by Home Assistant 2026.3 and later. On earlier versions the integration
+> works but shows a generic icon.
+
+### Standalone (Docker, no Home Assistant)
+
+```bash
+cp config.example.toml config.toml        # edit topics, powers, devices
+docker compose -f docker-compose.example.yml up --build
+```
+
+or `pip install ".[runtime]" && solarprio --config config.toml`.
+
+The runtime reads your meter from MQTT, decides, and publishes commands to MQTT topics or calls HTTP URLs.
+On `SIGTERM` / `docker stop` it switches all loads off before exiting.
 
 ## Device types
 
@@ -39,53 +83,40 @@ Behaviours worth knowing:
 - When routing stops (switch off, measurement lost, HA stops) every device gets 0: **a battery's charge setpoint
   goes to 0 W**, so a battery that normally charges by itself will not until routing resumes.
 - Without an on/off switch an EV charger is paused with 0 A, which not every charger accepts.
+- A sensor that only reports on change (some Zigbee meters) can be treated as lost after `stale_after_s`;
+  raise that setting for such sensors.
 - **Not supported:** automatic 1-phase/3-phase switching (hardware specific; some chargers need a re-plug to
   go back to 3 phases), discharge control of the battery, charging a battery in two priority stages.
 
-## Run without Home Assistant
+## What is and is not verified
 
-```bash
-cp config.example.toml config.toml        # edit topics, powers, devices
-docker compose -f docker-compose.example.yml up --build
-```
+Verified by automated tests: the allocation engine (including mutation checks on the safety rules), the
+standalone runtime against a real MQTT broker (a Python test broker, not Mosquitto), the Home Assistant
+integration against Home Assistant 2026.2.3, and the panel in real Chromium against a real Home Assistant instance
+(drag and drop, persistence, switches, battery and EV scenarios) with **simulated** entities and meters.
+`hassfest` and the HACS manifest schemas pass.
 
-or `pip install ".[runtime]" && solarprio --config config.toml`.
+Only Home Assistant 2026.2.3 was tested, so `hacs.json` asks for 2026.2.0 or later; the lower bound can be relaxed once older versions are tested.
 
-The runtime reads your meter from MQTT, decides, and publishes commands to MQTT topics
-or calls HTTP URLs. If the measurement is lost it switches loads off (`on_stale = "off"`,
-or `"hold"` to keep them as they are). On `SIGTERM` / `docker stop` it switches all
-loads off before exiting.
-
-## Use with Home Assistant
-
-Copy `custom_components/solarprio` into your HA `config/custom_components/` (HACS publication
-comes later), restart, then *Settings > Devices & services > Add integration > solarprio*:
-pick the grid power sensor (or production + consumption), then use **Configure** to add
-devices: pick the type first (on/off, adjustable, battery, EV charger), then fill the form for that type.
-A `Routing` switch turns routing on/off; sensors show available power, routed power,
-status and each device's commanded power.
-
-**Priority panel.** A *solarprio* entry appears in the sidebar (admins only): drag a device by its
-handle (mouse or touch), or use the arrows, to set the order; the top device is served first.
-Changes apply immediately without switching anything off, and are saved. Each device also has an
-on/off switch there, next to the master routing switch.
+Not verified: real inverters, batteries and wallboxes; the Docker image build (no Docker daemon was available
+during development); Mosquitto; touch devices, Safari and Firefox; Home Assistant versions other than 2026.2.3;
+the GitHub workflows (they cannot run until the repository is on GitHub).
 
 ## Develop
 
 ```bash
 pip install -e ".[dev]"
 pytest                      # core + standalone runtime
-python scripts/sync_core.py # after editing src/solarprio: refresh the copy used by the HA integration
-python -m venv .venv-ha && .venv-ha/bin/pip install pytest-homeassistant-custom-component
-scripts/test_ha.sh          # Home Assistant integration tests
+python scripts/sync_core.py # after editing src/: refresh the copy used by the HA integration
+scripts/test_ha.sh          # Home Assistant integration tests (needs .venv-ha, see CONTRIBUTING.md)
 scripts/e2e_ha.sh           # real Home Assistant + real Chromium driving the panel (slow)
 ```
 
-The end-to-end test needs, in `.venv-ha`: `playwright`, and the packages in
-`tests_e2e/ha-requirements.txt` (the frontend and the components it pulls in, pinned for
-Home Assistant 2026.2.3). Chromium is read from `/opt/pw-browsers/chromium`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## License
 
-Apache License 2.0, see [LICENSE](LICENSE). The project name and logo are not
-covered by the license.
+Apache License 2.0, see [LICENSE](LICENSE). The project name and logo are not covered by the license.
+
+This is an independent community project. It is not affiliated with, endorsed by or supported by Home
+Assistant, Open Home Foundation or Nabu Casa. "Home Assistant" is used only to describe compatibility.

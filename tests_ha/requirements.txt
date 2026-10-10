@@ -1,0 +1,4 @@
+# Dependencies of the Home Assistant integration tests (CI and local). Pinned to one Home Assistant release:
+# pytest-homeassistant-custom-component 0.13.316 pins Home Assistant 2026.2.3, whose frontend package is below.
+pytest-homeassistant-custom-component==0.13.316
+home-assistant-frontend==20260128.6

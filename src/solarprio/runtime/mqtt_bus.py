@@ -26,6 +26,13 @@ def parse_number(payload: bytes | str, field: str | None = None) -> float:
     return float(text)
 
 
+def _is_done(info: mqtt.MQTTMessageInfo) -> bool:
+    try:
+        return info.is_published()
+    except RuntimeError:
+        return True  # failed publishes are not worth tracking
+
+
 class MqttBus:
     def __init__(self, cfg: MqttConfig, clock: Callable[[], float] = time.monotonic) -> None:
         self._clock = clock
@@ -54,17 +61,24 @@ class MqttBus:
         """Disconnect after giving in-flight publishes (e.g. shutdown commands) time to be acknowledged."""
         deadline = time.monotonic() + flush_timeout
         for info in self._pending:
-            if not info.is_published():
-                try:
+            try:
+                if not info.is_published():
                     info.wait_for_publish(timeout=max(deadline - time.monotonic(), 0))
-                except (ValueError, RuntimeError):
-                    pass
+            except (ValueError, RuntimeError):
+                pass  # the broker was never reachable for this message: nothing more to wait for
         self._client.disconnect()
         self._client.loop_stop()
 
     def publish(self, topic: str, payload: str, retain: bool = False) -> None:
+        """Publish a message; raises ``ConnectionError`` when it cannot be handed to the broker connection.
+
+        The caller (the controller) then knows the command was NOT sent and retries on the next cycle,
+        instead of believing a load was switched.
+        """
         info = self._client.publish(topic, payload, qos=1, retain=retain)
-        self._pending = [i for i in self._pending if not i.is_published()] + [info]
+        if info.rc != mqtt.MQTT_ERR_SUCCESS:
+            raise ConnectionError(f"could not publish to {topic}: {mqtt.error_string(info.rc)}")
+        self._pending = [i for i in self._pending if not _is_done(i)] + [info]
 
     def latest(self, topic: str) -> tuple[bytes, float] | None:
         """Return ``(payload, age_seconds)`` or None if nothing was received yet."""

@@ -184,3 +184,36 @@ def test_invalid_ev_and_readings_are_config_errors():
         parse_config(minimal({**base, "readings": {"soc_topik": "x"}}))
     with pytest.raises(ConfigError, match="measured_unit"):
         parse_config(minimal({**base, "readings": {"measured_unit": "MW"}}))
+
+
+# ------------------------------------------------- broker unreachable
+
+def test_publish_without_a_broker_connection_raises_so_the_command_is_retried():
+    from solarprio.runtime.config import MqttConfig
+    from solarprio.runtime.mqtt_bus import MqttBus
+
+    bus = MqttBus(MqttConfig(host="127.0.0.1", port=1))  # never started: not connected
+    with pytest.raises(ConnectionError):
+        bus.publish("a/b", "ON")
+    bus.stop(flush_timeout=0.1)  # must not raise even though nothing was ever delivered
+
+
+def test_controller_retries_a_command_the_bus_refused():
+    class FlakyActuator:
+        def __init__(self):
+            self.up, self.calls = False, []
+
+        async def apply(self, device_id, power_w):
+            if not self.up:
+                raise ConnectionError("broker down")
+            self.calls.append((device_id, power_w))
+
+    clock, source, actuator = [0.0], Source(), FlakyActuator()
+    ctl = Controller(Engine([ev_dev()]), source, actuator, RuntimeConfig(resend_every_s=1e9), lambda: clock[0])
+    source.export = 2000
+    asyncio.run(ctl.tick())
+    assert actuator.calls == []  # nothing delivered, and the controller does not pretend it was
+    actuator.up, clock[0] = True, 5
+    asyncio.run(ctl.tick())
+    # retried on the next cycle with the same 8 A: the undelivered command was not counted as routed power
+    assert actuator.calls == [("ev", 8 * 230)]

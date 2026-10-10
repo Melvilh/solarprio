@@ -55,6 +55,7 @@ def _not_configured(connection, msg) -> None:
 
 
 @websocket_api.websocket_command({vol.Required("type"): "solarprio/state"})
+@websocket_api.require_admin
 @callback
 def ws_state(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     coordinator = _coordinator(hass)

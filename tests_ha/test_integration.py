@@ -210,3 +210,26 @@ async def test_editing_a_disabled_device_keeps_it_disabled(hass: HomeAssistant):
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options["devices"][0]["name"] == "Pump 2"
     assert entry.options["devices"][0]["enabled"] is False
+
+
+async def test_failed_service_call_is_not_counted_as_routed_power_and_is_retried(hass: HomeAssistant):
+    calls = []
+    failing = {"on": True}
+
+    async def turn_on(call):
+        if failing["on"]:
+            raise RuntimeError("device unreachable")
+        calls.append(call.data["entity_id"])
+
+    hass.services.async_register("homeassistant", "turn_on", turn_on)
+    async_mock_service(hass, "homeassistant", "turn_off")
+    hass.states.async_set(GRID, "900", {"unit_of_measurement": "W"})
+    entry = await setup(hass, devices=[dev(id="pump", name="Pump", entity_id="switch.pump", power_w=800)])
+
+    coord = coordinator(hass, entry)
+    assert coord.engine.routed_w == 0  # the "on" never reached the pump
+    failing["on"] = False
+    await coord.async_refresh()
+    await hass.async_block_till_done()
+    assert calls == ["switch.pump"]  # retried
+    assert coord.engine.routed_w == 800

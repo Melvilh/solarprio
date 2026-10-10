@@ -146,3 +146,15 @@ def test_shutdown_reports_devices_that_could_not_be_switched_off():
     run(ctl.tick())
     actuator.fail_for = {"b"}
     assert run(ctl.shutdown()) == ["b"]
+
+
+def test_shutdown_addresses_every_device_even_if_none_was_commanded_in_this_run():
+    ctl, source, actuator, clock = build()
+    run(ctl.shutdown())  # no tick happened: a previous run may have left loads on
+    assert sorted(actuator.calls) == [("a", 0.0), ("b", 0.0)]
+
+
+def test_shutdown_reports_every_device_when_nothing_can_be_reached():
+    ctl, source, actuator, clock = build()
+    actuator.fail_for = {"a", "b"}
+    assert sorted(run(ctl.shutdown())) == ["a", "b"]

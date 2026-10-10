@@ -17,7 +17,7 @@ from .mqtt_bus import MqttBus
 log = logging.getLogger("solarprio")
 
 
-async def run(config_path: str) -> None:
+async def run(config_path: str) -> list[str]:
     cfg = load_config(config_path)
     bus = MqttBus(cfg.mqtt)
     source = MqttPowerSource(bus, cfg.source, cfg.runtime.stale_after_s)
@@ -40,6 +40,7 @@ async def run(config_path: str) -> None:
         log.error("stopped, but these loads may still be on: %s", ", ".join(failed))
     else:
         log.info("stopped, all loads switched off")
+    return failed
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -49,8 +50,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     try:
-        asyncio.run(run(args.config))
+        failed = asyncio.run(run(args.config))
     except (ConfigError, OSError) as e:
         print(f"configuration error: {e}", file=sys.stderr)
         return 2
-    return 0
+    return 1 if failed else 0  # non-zero tells a supervisor that some loads may still be on

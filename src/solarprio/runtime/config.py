@@ -117,6 +117,13 @@ def parse_config(raw: dict[str, Any]) -> Config:
             raise ConfigError(f"invalid device {entry.get('id')!r}: {e}") from e
         if actuator["type"] not in ("mqtt", "http"):
             raise ConfigError(f"device {device.id!r}: unknown actuator type {actuator['type']!r}")
+        # fail at start-up, not at the first command
+        if actuator["type"] == "mqtt" and not actuator.get("topic"):
+            raise ConfigError(f"device {device.id!r}: an mqtt actuator needs a 'topic'")
+        if actuator["type"] == "http":
+            url = str(actuator.get("url", ""))
+            if not url.lower().startswith(("http://", "https://")):
+                raise ConfigError(f"device {device.id!r}: an http actuator needs an 'url' starting with http:// or https://")
         devices.append(device)
         if reading_cfg:
             try:

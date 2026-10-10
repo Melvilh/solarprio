@@ -69,3 +69,18 @@ def test_parse_number_plain_and_json():
     assert parse_number('{"ENERGY": {"Power": 120}}', "ENERGY.Power") == 120.0
     with pytest.raises(KeyError):
         parse_number('{"a": 1}', "b")
+
+
+def test_actuators_are_checked_at_load_time():
+    base = {"id": "a", "name": "A", "priority": 1, "kind": "on_off", "power_w": 100}
+    with pytest.raises(ConfigError, match="topic"):
+        parse_config(minimal_with({**base, "actuator": {"type": "mqtt"}}))
+    with pytest.raises(ConfigError, match="url"):
+        parse_config(minimal_with({**base, "actuator": {"type": "http"}}))
+    with pytest.raises(ConfigError, match="http:// or https://"):
+        parse_config(minimal_with({**base, "actuator": {"type": "http", "url": "file:///etc/passwd"}}))
+    parse_config(minimal_with({**base, "actuator": {"type": "http", "url": "HTTPS://host/x"}}))  # accepted
+
+
+def minimal_with(device):
+    return {"source": {"mode": "export", "export_topic": "g"}, "device": [device]}

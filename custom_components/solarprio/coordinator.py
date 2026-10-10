@@ -174,6 +174,7 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 await self._call(self.device_cfgs[device_id], power)
             except Exception:  # noqa: BLE001 - one failing device must not stop the others
                 _LOGGER.exception("Failed to apply %.0f W to %s", power, device_id)
+                self.engine.rollback_command(device_id, self._sent.get(device_id, 0.0))  # still at the last confirmed value
                 continue
             self._sent[device_id] = power
 

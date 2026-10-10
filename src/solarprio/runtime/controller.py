@@ -74,7 +74,10 @@ class Controller:
         for (device_id, power), result in zip(pending, results):
             if isinstance(result, Exception):
                 log.error("failed to apply %.0fW to %s: %r", power, device_id, result)
-                continue  # not recorded as sent, so it is retried next cycle
+                # not recorded as sent, so it is retried next cycle; the engine must not assume it was applied
+                confirmed = self._sent.get(device_id, (0.0, 0.0))[0]
+                self._engine.rollback_command(device_id, confirmed)
+                continue
             self._sent[device_id] = (power, now)
 
     async def run(self, stop: asyncio.Event) -> list[str]:
@@ -87,11 +90,12 @@ class Controller:
         return await self.shutdown()
 
     async def shutdown(self) -> list[str]:
-        """Switch every load off. Ignores min on/off timers: the process is stopping.
+        """Switch every configured load off. Ignores min on/off timers: the process is stopping.
 
-        Returns the ids of devices that could not be switched off.
+        Every device is addressed, not only those commanded during this run: a previous run (or a crash) may
+        have left one on. Returns the ids of devices that could not be switched off.
         """
-        ids = list(self._sent)
+        ids = self._engine.device_ids
         results = await asyncio.gather(*(self._actuator.apply(i, 0.0) for i in ids), return_exceptions=True)
         failed = [i for i, r in zip(ids, results) if isinstance(r, Exception)]
         for i in failed:
