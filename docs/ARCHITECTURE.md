@@ -51,15 +51,27 @@ container. So the engine knows nothing about Home Assistant.
 - `coordinator.py`: reads the sensors (kW converted to W, unavailable or too-old values count as
   lost), runs the engine, calls services (`homeassistant.turn_on/off`, `light.turn_on`,
   `number.set_value`). Loads are switched off when the entry is unloaded and when HA stops.
+- `panel.py` + `frontend/panel.js`: sidebar panel (custom element, no build step, no dependency).
+  Websocket API: `solarprio/state`, `solarprio/reorder`, `solarprio/set_device_enabled`,
+  `solarprio/set_routing` (writes need admin). A reorder or an enable change updates the config entry;
+  the update listener applies it **in place** (`Coordinator.apply_device_options`) and only reloads
+  the entry when something else changed, so a drag and drop never switches loads off.
+  Drag and drop uses pointer events (mouse and touch) with arrow buttons as the keyboard path.
+  The panel patches values in place and rebuilds the list only when devices or their order change.
 - Entities: `Routing` switch (restored across restarts), available / routed power, status,
   one command sensor per device.
 
 ## Not yet decided or built
 
-- HA integration: priority is a number in a form, not yet a drag-and-drop panel. After a HA
+- HA integration: After a HA
   restart the engine starts with all loads assumed off, so the first cycle can under-estimate
   the surplus until loads are commanded again. Not validated with HACS / hassfest; the
   `documentation` and `issue_tracker` URLs in `manifest.json` are placeholders.
+- Panel: tested in Chromium at desktop and phone widths, not on a real touch device or in Safari/Firefox.
+  Home Assistant runs a View Transition after page load during which clicks anywhere are swallowed
+  (observed in the e2e test); this is Home Assistant's behaviour and cannot be fixed from the panel.
+- `last_reported` staleness: a sensor that only updates on change (some Zigbee meters) can be treated as
+  lost after `stale_after_s`; raise that setting for such sensors.
 - Proportional devices are limited to `light` and `number`/`input_number` entities.
 
 - Runtime tested with a Python MQTT broker (amqtt), not with Mosquitto, and the Docker

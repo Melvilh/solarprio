@@ -130,3 +130,19 @@ def test_reset_forgets_commands_and_timers():
     assert engine.routed_w == 0
     engine.step(0, now=1)  # no min_on hold after reset
     assert engine.routed_w == 0
+
+
+def test_priority_can_change_on_the_fly_keeping_state():
+    engine = Engine([dimmer(priority=1), heater(priority=2, min_on_s=600)])
+    engine.step(5000, now=0)  # dimmer 3000 + heater 2000
+    engine.set_priority("heater", 1)
+    engine.set_priority("dimmer", 2)
+    cmd = engine.step(2500, now=10)  # heater (held by min_on) now first
+    assert cmd["heater"] == 2000 and cmd["dimmer"] == 500
+
+
+def test_disabled_device_is_switched_off_on_next_step():
+    engine = Engine([heater()])
+    engine.step(2000, now=0)
+    engine.set_enabled("heater", False)
+    assert engine.step(2000, now=1)["heater"] == 0

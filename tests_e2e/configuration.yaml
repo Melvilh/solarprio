@@ -1,0 +1,36 @@
+homeassistant:
+  name: Test
+  unit_system: metric
+  time_zone: Europe/Paris
+  latitude: 48.85
+  longitude: 2.35
+http:
+  server_port: 8123
+frontend:
+onboarding:
+input_number:
+  grid:
+    name: Grid
+    min: -10000
+    max: 10000
+    step: 1
+    initial: 0
+    unit_of_measurement: W
+  dimmer:
+    name: Dimmer
+    min: 0
+    max: 100
+    step: 1
+    initial: 0
+input_boolean:
+  pump:
+    name: Pump
+  server:
+    name: Server
+template:
+  - sensor:
+      - name: Grid Power
+        unique_id: grid_power_test
+        unit_of_measurement: W
+        device_class: power
+        state: "{{ states('input_number.grid') | float(0) }}"

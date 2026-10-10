@@ -157,6 +157,42 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         else:
             raise ValueError(f"unsupported entity domain for a proportional device: {domain}")
 
+    # ---- live changes from the panel ----------------------------------
+
+    def apply_device_options(self, devices: list[dict[str, Any]]) -> bool:
+        """Apply new device options in place when only priority/enabled changed.
+
+        Returns False when anything else changed (devices added/removed/edited): the caller must reload.
+        """
+        new = {d["id"]: d for d in devices}
+        if set(new) != set(self.device_cfgs):
+            return False
+        live_keys = ("priority", "enabled")
+        for device_id, cfg in new.items():
+            old = self.device_cfgs[device_id]
+            if {k: v for k, v in cfg.items() if k not in live_keys} != {k: v for k, v in old.items() if k not in live_keys}:
+                return False
+        for device_id, cfg in new.items():
+            self.engine.set_priority(device_id, int(cfg["priority"]))
+            self.engine.set_enabled(device_id, bool(cfg.get("enabled", True)))
+            self.device_cfgs[device_id] = cfg
+        return True
+
+    def snapshot(self) -> dict[str, Any]:
+        data = self.data or self._result("starting", None)
+        devices = [
+            {
+                "id": d["id"], "name": d["name"], "entity_id": d["entity_id"], "kind": d["kind"],
+                "priority": d["priority"], "power_w": d["power_w"], "enabled": d.get("enabled", True),
+                "cmd_w": data["commands"].get(d["id"], 0.0),
+            }
+            for d in sorted(self.device_cfgs.values(), key=lambda d: d["priority"])
+        ]
+        return {
+            "status": data["status"], "available_w": data["available_w"], "routed_w": data["routed_w"],
+            "routing_enabled": self.enabled, "devices": devices,
+        }
+
     async def async_shutdown_loads(self) -> list[str]:
         """Switch every device off, ignoring min on/off durations. Returns ids that failed."""
         failed = []

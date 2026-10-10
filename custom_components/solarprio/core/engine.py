@@ -33,6 +33,16 @@ class Engine:
     def state(self, device_id: str) -> DeviceState:
         return self._states[device_id]
 
+    def device(self, device_id: str) -> Device:
+        return self._devices[device_id]
+
+    def set_priority(self, device_id: str, priority: int) -> None:
+        """Change a device priority on the fly; its state and timers are kept."""
+        self._devices[device_id].priority = priority
+
+    def set_enabled(self, device_id: str, enabled: bool) -> None:
+        self._devices[device_id].enabled = enabled
+
     def reset(self) -> None:
         """Forget all commands and timers (loads were switched off from outside the engine)."""
         for device_id in self._states:

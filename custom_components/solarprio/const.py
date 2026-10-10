@@ -21,3 +21,6 @@ CONF_DEVICES = "devices"
 
 DEFAULT_INTERVAL = 5
 DEFAULT_STALE_AFTER = 60
+
+PANEL_URL_PATH = "solarprio"
+PANEL_STATIC_URL = "/solarprio_static/panel.js"
