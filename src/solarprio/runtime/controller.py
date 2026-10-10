@@ -8,7 +8,7 @@ import time
 from typing import Callable
 
 from ..engine import Engine
-from ..ports import DeviceActuator, PowerSource
+from ..ports import DeviceActuator, PowerSource, ReadingsSource
 from .adapters import MeasurementUnavailable
 from .config import RuntimeConfig
 
@@ -23,13 +23,16 @@ class Controller:
         actuator: DeviceActuator,
         cfg: RuntimeConfig,
         clock: Callable[[], float] = time.monotonic,
+        readings: ReadingsSource | None = None,
     ) -> None:
         self._engine, self._source, self._actuator, self._cfg, self._clock = engine, source, actuator, cfg, clock
+        self._readings = readings
         self._sent: dict[str, tuple[float, float]] = {}  # device -> (power_w, sent_at)
 
     async def tick(self) -> dict[str, float]:
         """Run one control cycle and return the commands decided."""
         now = self._clock()
+        self._update_readings()
         try:
             available = await self._source.read_available_w(self._engine.routed_w)
         except MeasurementUnavailable as e:
@@ -39,6 +42,13 @@ class Controller:
         log.debug("available=%.0fW commands=%s", available, commands)
         await self._send(commands, now)
         return commands
+
+    def _update_readings(self) -> None:
+        if self._readings is None:
+            return
+        current = self._readings.read_readings()
+        for device_id in self._engine.device_ids:
+            self._engine.set_reading(device_id, current.get(device_id))
 
     async def _on_measurement_lost(self, err: Exception, now: float) -> dict[str, float]:
         if self._cfg.on_stale == "hold":

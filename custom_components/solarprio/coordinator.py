@@ -29,13 +29,15 @@ from .const import (
     MODE_EXPORT,
     ON_STALE_HOLD,
 )
-from .core import Device, DeviceKind, Engine, available_from_export, available_from_production
+from .core import Device, DeviceKind, DeviceReading, Engine, available_from_export, available_from_production
 
 _LOGGER = logging.getLogger(__name__)
 
 DEVICE_FIELDS = (
     "id", "name", "priority", "kind", "power_w", "min_power_w",
     "min_on_s", "min_off_s", "start_margin_w", "stay_tolerance_w", "enabled",
+    "soc_max", "soc_resume_margin", "settle_s",
+    "voltage_v", "phases", "min_current_a", "max_current_a", "current_step_a",
 )
 
 
@@ -46,6 +48,8 @@ class MeasurementUnavailable(Exception):
 def build_device(cfg: dict[str, Any]) -> Device:
     values = {k: cfg[k] for k in DEVICE_FIELDS if k in cfg}
     values["kind"] = DeviceKind(values["kind"])
+    if "phases" in values:
+        values["phases"] = int(values["phases"])
     return Device(**values)
 
 
@@ -81,6 +85,44 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             value *= 1000
         return value
 
+    def _read_optional(self, entity_id: str | None) -> State | None:
+        """State of an optional entity, or None when not configured, unavailable, unknown or too old."""
+        if not entity_id:
+            return None
+        state = self.hass.states.get(entity_id)
+        if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
+            return None
+        age = (dt_util.utcnow() - state.last_reported).total_seconds()
+        if age > self._conf.get(CONF_STALE_AFTER, DEFAULT_STALE_AFTER):
+            return None
+        return state
+
+    def _read_reading(self, cfg: dict[str, Any]) -> DeviceReading | None:
+        """Measured power, state of charge and plug state of a device, from its optional entities."""
+        measured = soc = connected = None
+        if state := self._read_optional(cfg.get("measured_entity")):
+            try:
+                measured = float(state.state) * (1000 if state.attributes.get("unit_of_measurement") == "kW" else 1)
+            except ValueError:
+                pass
+        if state := self._read_optional(cfg.get("soc_entity")):
+            try:
+                soc = float(state.state)
+            except ValueError:
+                pass
+        if state := self._read_optional(cfg.get("connected_entity")):
+            if state.state in ("on", "true", "True", "connected", "plugged_in"):
+                connected = True
+            elif state.state in ("off", "false", "False", "disconnected", "unplugged"):
+                connected = False
+        if measured is None and soc is None and connected is None:
+            return None
+        return DeviceReading(measured_w=measured, soc=soc, connected=connected)
+
+    def _update_readings(self) -> None:
+        for device_id, cfg in self.device_cfgs.items():
+            self.engine.set_reading(device_id, self._read_reading(cfg))
+
     def _available_w(self) -> float:
         routed = self.engine.routed_w
         if self._conf[CONF_MODE] == MODE_EXPORT:
@@ -98,6 +140,7 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         now = time.monotonic()
+        self._update_readings()
         if not self.enabled:
             return self._result("disabled", None)
         try:
@@ -145,7 +188,18 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             )
             return
 
+        if cfg["kind"] == DeviceKind.EV_CHARGER.value:
+            await self._call_ev(cfg, power)
+            return
+
         percent = power / cfg["power_w"] * 100
+        if cfg["kind"] == DeviceKind.BATTERY.value:
+            if domain not in ("number", "input_number"):
+                raise ValueError(f"a battery needs a number entity for its charge setpoint, got {domain}")
+            value = percent if cfg.get("scale") == "percent" else power
+            await services.async_call(domain, "set_value", {"entity_id": entity, "value": round(value, 1)}, blocking=True)
+            return
+
         if domain == "light":
             if power > 0:
                 await services.async_call("light", "turn_on", {"entity_id": entity, "brightness_pct": round(percent)}, blocking=True)
@@ -156,6 +210,25 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await services.async_call(domain, "set_value", {"entity_id": entity, "value": round(value, 1)}, blocking=True)
         else:
             raise ValueError(f"unsupported entity domain for a proportional device: {domain}")
+
+    async def _call_ev(self, cfg: dict[str, Any], power: float) -> None:
+        """Set the charging current (A) on a number entity; also switch the charger if a switch is configured."""
+        device = self.engine.device(cfg["id"])
+        number = cfg["entity_id"]
+        number_domain = number.split(".")[0]
+        switch = cfg.get("switch_entity")
+        services = self.hass.services
+        amps = round(device.current_for(power), 2)
+
+        if power > 0:
+            await services.async_call(number_domain, "set_value", {"entity_id": number, "value": amps}, blocking=True)
+            if switch:
+                await services.async_call("homeassistant", "turn_on", {"entity_id": switch}, blocking=True)
+        elif switch:
+            await services.async_call("homeassistant", "turn_off", {"entity_id": switch}, blocking=True)
+        else:
+            # no switch: 0 A is how this charger is paused (not every charger accepts it)
+            await services.async_call(number_domain, "set_value", {"entity_id": number, "value": 0}, blocking=True)
 
     # ---- live changes from the panel ----------------------------------
 
@@ -178,16 +251,25 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.device_cfgs[device_id] = cfg
         return True
 
+    def _device_snapshot(self, cfg: dict[str, Any], data: dict[str, Any]) -> dict[str, Any]:
+        cmd_w = data["commands"].get(cfg["id"], 0.0)
+        reading = self.engine.reading(cfg["id"])
+        out = {
+            "id": cfg["id"], "name": cfg["name"], "entity_id": cfg["entity_id"], "kind": cfg["kind"],
+            "priority": cfg["priority"], "power_w": cfg["power_w"], "enabled": cfg.get("enabled", True),
+            "cmd_w": cmd_w,
+            "soc": reading.soc if reading else None,
+            "connected": reading.connected if reading else None,
+            "measured_w": reading.measured_w if reading else None,
+            "current_a": None,
+        }
+        if cfg["kind"] == DeviceKind.EV_CHARGER.value:
+            out["current_a"] = round(self.engine.device(cfg["id"]).current_for(cmd_w), 1)
+        return out
+
     def snapshot(self) -> dict[str, Any]:
         data = self.data or self._result("starting", None)
-        devices = [
-            {
-                "id": d["id"], "name": d["name"], "entity_id": d["entity_id"], "kind": d["kind"],
-                "priority": d["priority"], "power_w": d["power_w"], "enabled": d.get("enabled", True),
-                "cmd_w": data["commands"].get(d["id"], 0.0),
-            }
-            for d in sorted(self.device_cfgs.values(), key=lambda d: d["priority"])
-        ]
+        devices = [self._device_snapshot(d, data) for d in sorted(self.device_cfgs.values(), key=lambda d: d["priority"])]
         return {
             "status": data["status"], "available_w": data["available_w"], "routed_w": data["routed_w"],
             "routing_enabled": self.enabled, "devices": devices,

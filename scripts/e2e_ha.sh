@@ -7,17 +7,23 @@ set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$(mktemp -d)
 PY="$ROOT/.venv-ha/bin/python"
-mkdir -p "$WORK/config/custom_components"
-ln -s "$ROOT/custom_components/solarprio" "$WORK/config/custom_components/solarprio"
-cp "$ROOT/tests_e2e/configuration.yaml" "$WORK/config/"
-"$ROOT/.venv-ha/bin/hass" -c "$WORK/config" > "$WORK/ha.log" 2>&1 &
-HA_PID=$!
-trap 'kill $HA_PID 2>/dev/null || true' EXIT
-for _ in $(seq 1 90); do
-  [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8123/ || true)" = "200" ] && break
-  sleep 1
-done
 cd "${E2E_OUT:-$WORK}"
-"$PY" "$ROOT/tests_e2e/setup_ha.py" > auth.json
-"$PY" "$ROOT/tests_e2e/browser_test.py"
-echo "screenshots and HA log in: $(pwd) / $WORK/ha.log"
+for SCENARIO in basic ev; do
+  CONFIG="$WORK/config-$SCENARIO"
+  mkdir -p "$CONFIG/custom_components"
+  ln -s "$ROOT/custom_components/solarprio" "$CONFIG/custom_components/solarprio"
+  cp "$ROOT/tests_e2e/configuration.yaml" "$CONFIG/"
+  "$ROOT/.venv-ha/bin/hass" -c "$CONFIG" > "$WORK/ha-$SCENARIO.log" 2>&1 &
+  HA_PID=$!
+  for _ in $(seq 1 90); do
+    [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8123/ || true)" = "200" ] && break
+    sleep 1
+  done
+  "$PY" "$ROOT/tests_e2e/setup_ha.py" "$SCENARIO" > auth.json
+  if [ "$SCENARIO" = basic ]; then TEST=browser_test.py; else TEST=browser_test_ev.py; fi
+  echo "=== scenario: $SCENARIO ==="
+  "$PY" "$ROOT/tests_e2e/$TEST"
+  kill $HA_PID 2>/dev/null || true
+  wait $HA_PID 2>/dev/null || true
+done
+echo "screenshots and HA logs in: $(pwd) / $WORK"

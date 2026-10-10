@@ -1,12 +1,13 @@
 """solarprio (provisional name): priority-based solar surplus routing engine."""
 
 from .engine import Engine
-from .models import Device, DeviceKind, DeviceState
+from .models import Device, DeviceKind, DeviceReading, DeviceState
 from .sources import available_from_export, available_from_production
 
 __all__ = [
     "Device",
     "DeviceKind",
+    "DeviceReading",
     "DeviceState",
     "Engine",
     "available_from_export",

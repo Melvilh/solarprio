@@ -40,16 +40,33 @@ flow = call("POST", f"/api/config/config_entries/flow/{flow['flow_id']}",
             {"export_entity": "sensor.grid_power", "invert": False, "interval_s": 2, "stale_after_s": 3600, "on_stale": "off"}, token)
 entry_id = flow["result"]["entry_id"]
 
-devices = [
-    ("Chauffe-eau (variateur)", "input_number.dimmer", "proportional", 1, 2000, 100),
-    ("Pompe piscine", "input_boolean.pump", "on_off", 2, 800, 0),
-    ("Serveur de calcul", "input_boolean.server", "on_off", 3, 300, 0),
-]
-for name, entity, kind, prio, power, minp in devices:
+SCENARIOS = {
+    "basic": [
+        ("on_off_proportional", {"name": "Chauffe-eau (variateur)", "entity_id": "input_number.dimmer", "priority": 1, "power_w": 2000,
+                                  "min_power_w": 100, "scale": "percent", "min_on_s": 0, "min_off_s": 0}, "proportional"),
+        ("pump", {"name": "Pompe piscine", "entity_id": "input_boolean.pump", "priority": 2, "power_w": 800,
+                  "min_on_s": 0, "min_off_s": 0, "start_margin_w": 0, "stay_tolerance_w": 0}, "on_off"),
+        ("server", {"name": "Serveur de calcul", "entity_id": "input_boolean.server", "priority": 3, "power_w": 300,
+                    "min_on_s": 0, "min_off_s": 0, "start_margin_w": 0, "stay_tolerance_w": 0}, "on_off"),
+    ],
+    "ev": [
+        ("battery", {"name": "Batterie maison", "entity_id": "input_number.bat_charge", "priority": 1, "power_w": 3000, "min_power_w": 200,
+                     "scale": "watts", "soc_entity": "input_number.bat_soc", "soc_max": 90, "soc_resume_margin": 3,
+                     "min_on_s": 0, "min_off_s": 0}, "battery"),
+        ("ev", {"name": "Borne de recharge", "entity_id": "input_number.ev_current", "switch_entity": "input_boolean.ev_switch", "priority": 2,
+                "phases": "1", "voltage_v": 230, "min_current_a": 6, "max_current_a": 16, "current_step_a": 1,
+                "connected_entity": "input_boolean.car_plugged", "soc_entity": "input_number.car_soc", "soc_max": 80,
+                "min_on_s": 0, "min_off_s": 0, "start_margin_w": 0, "stay_tolerance_w": 0}, "ev_charger"),
+        ("pump", {"name": "Pompe piscine", "entity_id": "input_boolean.pump", "priority": 3, "power_w": 800,
+                  "min_on_s": 0, "min_off_s": 0, "start_margin_w": 0, "stay_tolerance_w": 0}, "on_off"),
+    ],
+}
+scenario = sys.argv[1] if len(sys.argv) > 1 else "basic"
+for _, form, kind in SCENARIOS[scenario]:
     f = call("POST", "/api/config/config_entries/options/flow", {"handler": entry_id}, token)
     f = call("POST", f"/api/config/config_entries/options/flow/{f['flow_id']}", {"next_step_id": "add_device"}, token)
-    f = call("POST", f"/api/config/config_entries/options/flow/{f['flow_id']}", {
-        "name": name, "entity_id": entity, "kind": kind, "priority": prio, "power_w": power, "min_power_w": minp,
-        "scale": "percent", "min_on_s": 0, "min_off_s": 0, "start_margin_w": 0, "stay_tolerance_w": 0}, token)
+    f = call("POST", f"/api/config/config_entries/options/flow/{f['flow_id']}", {"kind": kind}, token)
+    assert f["step_id"] == "device_details", f
+    f = call("POST", f"/api/config/config_entries/options/flow/{f['flow_id']}", form, token)
     assert f["type"] == "create_entry", f
 print(json.dumps({"token": token, "refresh_token": tokens["refresh_token"], "entry_id": entry_id}))

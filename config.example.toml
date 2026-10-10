@@ -68,3 +68,44 @@ min_on_s = 300
   type = "http"
   url = "http://192.168.1.50:8080/compute/{state}"
   method = "POST"
+
+# ---- Battery: charge setpoint in watts, limited by its state of charge ----
+[[device]]
+id = "home_battery"
+name = "Home battery"
+priority = 4
+kind = "battery"
+power_w = 3000          # maximum charge power
+min_power_w = 200       # below this the battery is not charged
+soc_max = 95            # stop charging at this state of charge (%)
+soc_resume_margin = 3   # resume at 92 %
+  [device.actuator]
+  type = "mqtt"
+  topic = "battery/charge_setpoint_w"
+  scale = "watts"
+  [device.readings]
+  soc_topic = "battery/soc"
+  measured_topic = "battery/charge_power_w"   # optional: real charge power, frees surplus when the battery tapers
+
+# ---- EV charger: current in amps, never below the minimum current ----
+[[device]]
+id = "wallbox"
+name = "Wallbox"
+priority = 5
+kind = "ev_charger"
+phases = 1              # fixed: automatic 1/3 phase switching is not supported
+voltage_v = 230
+min_current_a = 6       # usual AC minimum (IEC 61851-1); check your charger
+max_current_a = 16
+min_on_s = 300          # contactors do not like frequent switching
+start_margin_w = 100
+  [device.actuator]
+  type = "mqtt"
+  topic = "wallbox/current_a"
+  switch_topic = "wallbox/enable"   # optional; without it, 0 A pauses the charger
+  payload_on = "ON"
+  payload_off = "OFF"
+  [device.readings]
+  connected_topic = "wallbox/car_connected"  # ON/OFF, true/false, 1/0
+  soc_topic = "car/soc"                      # optional
+  measured_topic = "wallbox/power_w"         # optional

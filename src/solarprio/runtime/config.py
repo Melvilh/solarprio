@@ -40,6 +40,17 @@ class SourceConfig:
 
 
 @dataclass
+class ReadingsConfig:
+    """MQTT topics giving a device's measured power, state of charge and plug state."""
+
+    measured_topic: str | None = None
+    soc_topic: str | None = None
+    connected_topic: str | None = None
+    field: str | None = None  # JSON field to extract from payloads, if payloads are JSON
+    measured_unit: str = "W"  # "W" or "kW"
+
+
+@dataclass
 class ActuatorConfig:
     type: str  # "mqtt" or "http"
     options: dict[str, Any] = field(default_factory=dict)
@@ -52,6 +63,7 @@ class Config:
     source: SourceConfig
     devices: list[Device]
     actuators: dict[str, ActuatorConfig]
+    readings: dict[str, ReadingsConfig] = field(default_factory=dict)
 
 
 def load_config(path: str | Path) -> Config:
@@ -91,8 +103,10 @@ def parse_config(raw: dict[str, Any]) -> Config:
 
     devices: list[Device] = []
     actuators: dict[str, ActuatorConfig] = {}
+    readings: dict[str, ReadingsConfig] = {}
     for entry in raw.get("device", []):
         entry = dict(entry)
+        reading_cfg = entry.pop("readings", None)
         actuator = entry.pop("actuator", None)
         if actuator is None or "type" not in actuator:
             raise ConfigError(f"device {entry.get('id')!r}: missing actuator.type")
@@ -104,6 +118,13 @@ def parse_config(raw: dict[str, Any]) -> Config:
         if actuator["type"] not in ("mqtt", "http"):
             raise ConfigError(f"device {device.id!r}: unknown actuator type {actuator['type']!r}")
         devices.append(device)
+        if reading_cfg:
+            try:
+                readings[device.id] = ReadingsConfig(**reading_cfg)
+            except TypeError as e:
+                raise ConfigError(f"device {device.id!r}: invalid readings section: {e}") from e
+            if readings[device.id].measured_unit not in ("W", "kW"):
+                raise ConfigError(f"device {device.id!r}: readings.measured_unit must be 'W' or 'kW'")
         actuators[device.id] = ActuatorConfig(
             type=actuator["type"], options={k: v for k, v in actuator.items() if k != "type"}
         )
@@ -114,4 +135,4 @@ def parse_config(raw: dict[str, Any]) -> Config:
     if len(set(ids)) != len(ids):
         raise ConfigError("duplicate device ids")
 
-    return Config(runtime=runtime, mqtt=mqtt, source=source, devices=devices, actuators=actuators)
+    return Config(runtime=runtime, mqtt=mqtt, source=source, devices=devices, actuators=actuators, readings=readings)

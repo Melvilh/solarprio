@@ -50,46 +50,58 @@
       "add_device": {
         "title": "Add a device",
         "data": {
-          "name": "Name",
-          "entity_id": "Entity to control",
-          "kind": "Type",
-          "priority": "Priority (lower = served first)",
-          "power_w": "Maximum power",
-          "min_power_w": "Minimum power (proportional)",
-          "scale": "Value sent to number entities",
-          "min_on_s": "Minimum run time",
-          "min_off_s": "Minimum rest time",
-          "start_margin_w": "Extra surplus needed to start",
-          "stay_tolerance_w": "Grid import tolerated to keep running"
-        },
-        "data_description": {
-          "kind": "on_off: all or nothing. proportional: light or number entity.",
-          "scale": "percent: 0-100. watts: power in W."
+          "kind": "Type"
         }
       },
-      "edit_device": {
-        "title": "Edit a device",
+      "device_details": {
+        "title": "Device settings",
         "data": {
           "name": "Name",
           "entity_id": "Entity to control",
-          "kind": "Type",
+          "switch_entity": "On/off switch of the charger (optional)",
           "priority": "Priority (lower = served first)",
           "power_w": "Maximum power",
-          "min_power_w": "Minimum power (proportional)",
-          "scale": "Value sent to number entities",
+          "min_power_w": "Minimum power",
+          "scale": "Value sent to the number entity",
+          "soc_entity": "State of charge sensor (optional)",
+          "soc_max": "Stop charging at (%)",
+          "soc_resume_margin": "Resume charging this far below the limit (%)",
+          "measured_entity": "Measured power sensor (optional)",
+          "phases": "Number of phases",
+          "voltage_v": "Voltage per phase",
+          "min_current_a": "Minimum charging current",
+          "max_current_a": "Maximum charging current",
+          "current_step_a": "Current step",
+          "connected_entity": "Car plugged-in entity (optional)",
           "min_on_s": "Minimum run time",
           "min_off_s": "Minimum rest time",
           "start_margin_w": "Extra surplus needed to start",
           "stay_tolerance_w": "Grid import tolerated to keep running"
         },
         "data_description": {
-          "kind": "on_off: all or nothing. proportional: light or number entity.",
-          "scale": "percent: 0-100. watts: power in W."
+          "entity_id": "On/off and proportional: the entity to switch or set. Battery: the number entity of the charge setpoint. EV charger: the number entity of the charging current in amps.",
+          "scale": "percent: 0-100 of the maximum power. watts: power in W.",
+          "soc_max": "Without a state of charge sensor, a limit below 100 means the device will not charge.",
+          "min_current_a": "6 A is the usual minimum for AC charging (IEC 61851-1); check your charger.",
+          "measured_entity": "Real power drawn. Lets the engine free surplus when the device takes less than commanded.",
+          "connected_entity": "on = plugged in. Unknown is treated as plugged in. An unplugged car gets nothing, so the surplus goes to lower priorities.",
+          "switch_entity": "If set, the charger is switched on/off with it. Otherwise it is paused by setting 0 A (not every charger accepts that).",
+          "phases": "Fixed number of phases. Automatic 1/3 phase switching is not supported."
         }
       }
     },
     "error": {
       "invalid_device": "Invalid device: power must be > 0 and minimum power cannot exceed it."
+    }
+  },
+  "selector": {
+    "device_kind": {
+      "options": {
+        "on_off": "On/off load (water heater, socket, server)",
+        "proportional": "Adjustable load (dimmer, router)",
+        "battery": "Battery",
+        "ev_charger": "EV charger"
+      }
     }
   }
 }

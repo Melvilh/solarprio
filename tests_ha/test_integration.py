@@ -146,6 +146,14 @@ async def test_config_flow_single_instance(hass: HomeAssistant):
     assert result["type"] is FlowResultType.ABORT
 
 
+async def _add_device(hass, entry, kind, form):
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "add_device"})
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"kind": kind})
+    assert result["step_id"] == "device_details"
+    return await hass.config_entries.options.async_configure(result["flow_id"], form)
+
+
 async def test_options_flow_add_edit_remove_device(hass: HomeAssistant):
     async_mock_service(hass, "homeassistant", "turn_off")
     hass.states.async_set(GRID, "0", {"unit_of_measurement": "W"})
@@ -155,29 +163,27 @@ async def test_options_flow_add_edit_remove_device(hass: HomeAssistant):
     assert result["type"] is FlowResultType.MENU
     assert result["menu_options"] == ["add_device"]  # no edit/remove while empty
 
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "add_device"})
     form = {
-        "name": "Water heater", "entity_id": "switch.heater", "kind": "on_off", "priority": 1, "power_w": 2000,
-        "min_power_w": 0, "scale": "percent", "min_on_s": 60, "min_off_s": 30, "start_margin_w": 0, "stay_tolerance_w": 0,
+        "name": "Water heater", "entity_id": "switch.heater", "priority": 1, "power_w": 2000,
+        "min_on_s": 60, "min_off_s": 30, "start_margin_w": 0, "stay_tolerance_w": 0,
     }
-    result = await hass.config_entries.options.async_configure(result["flow_id"], form)
+    result = await _add_device(hass, entry, "on_off", form)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     devices = entry.options["devices"]
     assert [d["id"] for d in devices] == ["water_heater"]
-    assert devices[0]["priority"] == 1 and devices[0]["enabled"] is True
+    assert devices[0]["priority"] == 1 and devices[0]["enabled"] is True and devices[0]["kind"] == "on_off"
     await hass.async_block_till_done()  # entry reloaded with the new device
 
-    # invalid: min power above max power
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "add_device"})
-    bad = {**form, "name": "Bad", "kind": "proportional", "power_w": 100, "min_power_w": 500}
-    result = await hass.config_entries.options.async_configure(result["flow_id"], bad)
+    # invalid: minimum power above maximum power (proportional)
+    bad = {"name": "Bad", "entity_id": "light.x", "priority": 2, "power_w": 100, "min_power_w": 500, "scale": "percent", "min_on_s": 0, "min_off_s": 0}
+    result = await _add_device(hass, entry, "proportional", bad)
     assert result["type"] is FlowResultType.FORM and result["errors"] == {"base": "invalid_device"}
 
-    # edit priority
+    # edit the priority: kind-specific form is shown again, identity is kept
     result = await hass.config_entries.options.async_init(entry.entry_id)
     result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "edit_select"})
     result = await hass.config_entries.options.async_configure(result["flow_id"], {"device": "water_heater"})
+    assert result["step_id"] == "device_details"
     result = await hass.config_entries.options.async_configure(result["flow_id"], {**form, "priority": 5})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options["devices"][0]["priority"] == 5
@@ -189,3 +195,18 @@ async def test_options_flow_add_edit_remove_device(hass: HomeAssistant):
     result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "remove_device"})
     result = await hass.config_entries.options.async_configure(result["flow_id"], {"devices": ["water_heater"]})
     assert entry.options["devices"] == []
+
+
+async def test_editing_a_disabled_device_keeps_it_disabled(hass: HomeAssistant):
+    async_mock_service(hass, "homeassistant", "turn_off")
+    hass.states.async_set(GRID, "0", {"unit_of_measurement": "W"})
+    entry = await setup(hass, devices=[dev(id="pump", name="Pump", entity_id="switch.pump", enabled=False)])
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"next_step_id": "edit_select"})
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {"device": "pump"})
+    form = {"name": "Pump 2", "entity_id": "switch.pump", "priority": 1, "power_w": 900, "min_on_s": 0, "min_off_s": 0,
+            "start_margin_w": 0, "stay_tolerance_w": 0}
+    result = await hass.config_entries.options.async_configure(result["flow_id"], form)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options["devices"][0]["name"] == "Pump 2"
+    assert entry.options["devices"][0]["enabled"] is False

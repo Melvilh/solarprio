@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from .models import DeviceReading
+
 
 class PowerSource(Protocol):
     async def read_available_w(self, routed_w: float) -> float:
@@ -17,3 +19,11 @@ class PowerSource(Protocol):
 class DeviceActuator(Protocol):
     async def apply(self, device_id: str, power_w: float) -> None:
         """Command a device to ``power_w`` (0 = off)."""
+
+
+class ReadingsSource(Protocol):
+    def read_readings(self) -> dict[str, DeviceReading]:
+        """Return what is currently known per device id (measured power, state of charge, plug state).
+
+        Devices without usable data are left out.
+        """

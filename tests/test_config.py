@@ -22,7 +22,7 @@ def minimal(**overrides):
 
 def test_example_config_is_valid():
     cfg = load_config(ROOT / "config.example.toml")
-    assert [d.id for d in cfg.devices] == ["dimmer_heater", "pool_pump", "server"]
+    assert [d.id for d in cfg.devices] == ["dimmer_heater", "pool_pump", "server", "home_battery", "wallbox"]
     assert cfg.actuators["server"].type == "http"
     assert cfg.source.topics == {"export": "house/grid/power_w"}
 

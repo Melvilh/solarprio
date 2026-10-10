@@ -11,6 +11,8 @@ const T = {
     on: "on",
     off: "off",
     max: "max",
+    soc: "SoC",
+    unplugged: "unplugged",
     disabled: "Disabled",
     error: "Could not save, order restored.",
     notConfigured: "solarprio is not set up.",
@@ -36,6 +38,8 @@ const T = {
     on: "marche",
     off: "arrêt",
     max: "max",
+    soc: "Niveau",
+    unplugged: "débranché",
     disabled: "Désactivé",
     error: "Enregistrement impossible, ordre restauré.",
     notConfigured: "solarprio n'est pas configuré.",
@@ -374,7 +378,12 @@ class SolarPrioPanel extends HTMLElement {
       const d = s.devices[i];
       const on = d.cmd_w > 0;
       row.classList.toggle("off", !d.enabled);
-      set(row.querySelector(".sub"), `${d.entity_id} · ${d.enabled ? (on ? t.on : t.off) : t.disabled} · ${t.max} ${fmtW(d.power_w)}`);
+      const parts = [d.entity_id, d.enabled ? (on ? t.on : t.off) : t.disabled];
+      if (d.connected === false) parts.push(t.unplugged);
+      if (d.current_a > 0) parts.push(`${d.current_a} A`);
+      if (d.soc != null) parts.push(`${t.soc} ${Math.round(d.soc)} %`);
+      parts.push(`${t.max} ${fmtW(d.power_w)}`);
+      set(row.querySelector(".sub"), parts.join(" · "));
       const pct = Math.max(0, Math.min(100, (d.cmd_w / d.power_w) * 100));
       row.querySelector(".bar > div").style.width = `${pct}%`;
       set(row.querySelector(".power"), fmtW(d.cmd_w));

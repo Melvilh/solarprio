@@ -6,9 +6,9 @@ import asyncio
 import logging
 import urllib.request
 
-from ..models import Device, DeviceKind
+from ..models import Device, DeviceKind, DeviceReading
 from ..sources import available_from_export, available_from_production
-from .config import ActuatorConfig, SourceConfig
+from .config import ActuatorConfig, ReadingsConfig, SourceConfig
 from .mqtt_bus import MqttBus, parse_number
 
 log = logging.getLogger(__name__)
@@ -46,11 +46,57 @@ class MqttPowerSource:
         return available_from_production(self._read("production"), self._read("consumption"), routed_w)
 
 
+TRUTHY = {"on", "true", "1", "connected", "plugged", "plugged_in", "yes"}
+FALSY = {"off", "false", "0", "disconnected", "unplugged", "no"}
+
+
+class MqttReadings:
+    """Reads each device's measured power, state of charge and plug state from MQTT topics."""
+
+    def __init__(self, bus: MqttBus, configs: dict[str, ReadingsConfig], stale_after_s: float) -> None:
+        self._bus, self._configs, self._stale_after_s = bus, configs, stale_after_s
+        for cfg in configs.values():
+            for topic in (cfg.measured_topic, cfg.soc_topic, cfg.connected_topic):
+                if topic:
+                    bus.subscribe(topic)
+
+    def _fresh(self, topic: str | None) -> bytes | None:
+        if not topic:
+            return None
+        item = self._bus.latest(topic)
+        if item is None or item[1] > self._stale_after_s:
+            return None
+        return item[0]
+
+    def read_readings(self) -> dict[str, DeviceReading]:
+        out: dict[str, DeviceReading] = {}
+        for device_id, cfg in self._configs.items():
+            measured = soc = connected = None
+            if (raw := self._fresh(cfg.measured_topic)) is not None:
+                try:
+                    measured = parse_number(raw, cfg.field) * (1000 if cfg.measured_unit == "kW" else 1)
+                except (ValueError, KeyError, TypeError):
+                    pass
+            if (raw := self._fresh(cfg.soc_topic)) is not None:
+                try:
+                    soc = parse_number(raw, cfg.field)
+                except (ValueError, KeyError, TypeError):
+                    pass
+            if (raw := self._fresh(cfg.connected_topic)) is not None:
+                word = raw.decode(errors="ignore").strip().strip('"').lower()
+                connected = True if word in TRUTHY else False if word in FALSY else None
+            if measured is not None or soc is not None or connected is not None:
+                out[device_id] = DeviceReading(measured_w=measured, soc=soc, connected=connected)
+        return out
+
+
 class MqttActuator:
     """Publishes a command per device.
 
     Options: ``topic`` (required); ``payload_on`` / ``payload_off`` for on/off loads;
-    for proportional loads ``scale`` = ``"percent"`` (default) or ``"watts"``.
+    ``scale`` for the others: ``"percent"`` (proportional default), ``"watts"`` (battery default),
+    ``"amps"`` (EV charger default). An EV charger may also have a ``switch_topic`` (same payload options),
+    switched on after the current is set and off when the charge stops; without it 0 A pauses the charger.
     """
 
     def __init__(self, bus: MqttBus, devices: dict[str, Device], options: dict[str, dict]) -> None:
@@ -58,17 +104,31 @@ class MqttActuator:
 
     async def apply(self, device_id: str, power_w: float) -> None:
         dev, opt = self._devices[device_id], self._options[device_id]
+        retain = opt.get("retain", False)
+        on, off = opt.get("payload_on", "ON"), opt.get("payload_off", "OFF")
         if dev.kind is DeviceKind.ON_OFF:
-            payload = opt.get("payload_on", "ON") if power_w > 0 else opt.get("payload_off", "OFF")
-        elif opt.get("scale", "percent") == "watts":
-            payload = f"{power_w:.0f}"
-        else:
-            payload = f"{power_w / dev.power_w * 100:.1f}"
-        self._bus.publish(opt["topic"], payload, retain=opt.get("retain", False))
+            self._bus.publish(opt["topic"], on if power_w > 0 else off, retain=retain)
+            return
+        default_scale = {DeviceKind.EV_CHARGER: "amps", DeviceKind.BATTERY: "watts"}.get(dev.kind, "percent")
+        scale = opt.get("scale", default_scale)
+        value = {
+            "watts": f"{power_w:.0f}",
+            "amps": f"{dev.current_for(power_w):.1f}",
+            "percent": f"{power_w / dev.power_w * 100:.1f}",
+        }[scale]
+        switch_topic = opt.get("switch_topic")
+        if dev.kind is DeviceKind.EV_CHARGER and switch_topic:
+            if power_w > 0:
+                self._bus.publish(opt["topic"], value, retain=retain)
+                self._bus.publish(switch_topic, on, retain=retain)
+            else:
+                self._bus.publish(switch_topic, off, retain=retain)
+            return
+        self._bus.publish(opt["topic"], value, retain=retain)
 
 
 class HttpActuator:
-    """Calls a URL template; ``{power_w}``, ``{percent}`` and ``{state}`` (on/off) are substituted."""
+    """Calls a URL template; ``{power_w}``, ``{percent}``, ``{amps}`` and ``{state}`` (on/off) are substituted."""
 
     def __init__(self, devices: dict[str, Device], options: dict[str, dict], timeout_s: float = 5.0) -> None:
         self._devices, self._options, self._timeout_s = devices, options, timeout_s
@@ -79,6 +139,7 @@ class HttpActuator:
             power_w=f"{power_w:.0f}",
             percent=f"{power_w / dev.power_w * 100:.1f}",
             state="on" if power_w > 0 else "off",
+            amps=f"{dev.current_for(power_w):.1f}",
         )
         req = urllib.request.Request(url, method=opt.get("method", "GET"))
         await asyncio.to_thread(self._call, req)

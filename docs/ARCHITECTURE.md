@@ -22,7 +22,12 @@ container. So the engine knows nothing about Home Assistant.
 - `Device`: priority, kind (`on_off` / `proportional`), max and min power,
   min on/off time, start margin, stay tolerance.
 - `Engine.step(available_w, now)`: walks devices by priority, hands out the
-  surplus, applies hysteresis and min on/off timers, returns one command per device.
+  surplus, applies hysteresis and min on/off timers, returns one command per device (watts).
+- Device types: `on_off`, `proportional`, `battery`, `ev_charger`. An EV charger's power range is derived
+  from voltage, phases and min/max current; commands stay in watts, runtimes convert with `Device.current_for`.
+- `DeviceReading` (`Engine.set_reading`): optional measured power, state of charge and plug state per device.
+  Safety limits (SoC reached, car unplugged) override the min on/off timers. `routed_w` uses measured power when known,
+  and a device measured below its command (after `settle_s`) frees the difference for lower priorities.
 - `available_w` **includes what managed loads already consume**. Helpers in
   `sources.py` compute it from grid export or from production and consumption.
   Without this, the loop would oscillate: a heater that starts reduces the
@@ -37,7 +42,8 @@ container. So the engine knows nothing about Home Assistant.
 
 - `config.py`: TOML parsing and validation.
 - `mqtt_bus.py`: paho-mqtt wrapper caching the latest value (with age) per topic.
-- `adapters.py`: `MqttPowerSource`, `MqttActuator`, `HttpActuator`.
+- `adapters.py`: `MqttPowerSource`, `MqttReadings` (SoC / plug / measured power topics), `MqttActuator`
+  (watts, percent or amps; EV `switch_topic`), `HttpActuator` (`{power_w}`, `{percent}`, `{amps}`, `{state}`).
 - `controller.py`: the loop. Sends only changed commands (plus a periodic resend),
   sends concurrently, retries failed sends, handles measurement loss, switches off on shutdown.
 
@@ -72,13 +78,16 @@ container. So the engine knows nothing about Home Assistant.
   (observed in the e2e test); this is Home Assistant's behaviour and cannot be fixed from the panel.
 - `last_reported` staleness: a sensor that only updates on change (some Zigbee meters) can be treated as
   lost after `stale_after_s`; raise that setting for such sensors.
-- Proportional devices are limited to `light` and `number`/`input_number` entities.
+- Proportional devices are limited to `light` and `number`/`input_number` entities. Battery charge setpoints and
+  EV currents must be `number`/`input_number` entities.
 
 - Runtime tested with a Python MQTT broker (amqtt), not with Mosquitto, and the Docker
   image has not been built yet (no Docker daemon was available).
 - No authentication/TLS options for MQTT beyond username/password.
 - HTTP actuator: no custom headers or body.
-- Battery (SoC limits, charge/discharge) and EV charger (current steps,
-  minimum 6 A) need dedicated device kinds; the current two kinds do not model them.
+- Battery and EV charger: tested on the engine, on Home Assistant (config flow, services, panel) and over MQTT,
+  with simulated entities and meters, not with real inverters or wallboxes. No automatic 1/3 phase switching, no
+  battery discharge control, no two-stage battery priority (e.g. 30 % first, 100 % last), no EV departure-time logic.
+- When routing stops a battery setpoint goes to 0 W (see README); a configurable release value is not implemented.
 - Safety: measurement loss is handled (`on_stale`), but the behavior when a device stops
   responding (command sent, load not actually switched) is not detected: no feedback loop yet.

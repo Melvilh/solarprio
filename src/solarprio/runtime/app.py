@@ -9,7 +9,7 @@ import signal
 import sys
 
 from ..engine import Engine
-from .adapters import DispatchActuator, MqttPowerSource
+from .adapters import DispatchActuator, MqttPowerSource, MqttReadings
 from .config import ConfigError, load_config
 from .controller import Controller
 from .mqtt_bus import MqttBus
@@ -22,7 +22,8 @@ async def run(config_path: str) -> None:
     bus = MqttBus(cfg.mqtt)
     source = MqttPowerSource(bus, cfg.source, cfg.runtime.stale_after_s)
     actuator = DispatchActuator(bus, cfg.devices, cfg.actuators)
-    controller = Controller(Engine(cfg.devices), source, actuator, cfg.runtime)
+    readings = MqttReadings(bus, cfg.readings, cfg.runtime.stale_after_s)
+    controller = Controller(Engine(cfg.devices), source, actuator, cfg.runtime, readings=readings)
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

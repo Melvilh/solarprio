@@ -9,6 +9,34 @@ http:
 frontend:
 onboarding:
 input_number:
+  bat_charge:
+    name: Battery charge setpoint
+    min: 0
+    max: 3000
+    step: 1
+    initial: 0
+    unit_of_measurement: W
+  bat_soc:
+    name: Battery SoC
+    min: 0
+    max: 100
+    step: 1
+    initial: 50
+    unit_of_measurement: "%"
+  ev_current:
+    name: EV current
+    min: 0
+    max: 32
+    step: 1
+    initial: 0
+    unit_of_measurement: A
+  car_soc:
+    name: Car SoC
+    min: 0
+    max: 100
+    step: 1
+    initial: 30
+    unit_of_measurement: "%"
   grid:
     name: Grid
     min: -10000
@@ -23,6 +51,11 @@ input_number:
     step: 1
     initial: 0
 input_boolean:
+  ev_switch:
+    name: EV charger switch
+  car_plugged:
+    name: Car plugged
+    initial: true
   pump:
     name: Pump
   server:
