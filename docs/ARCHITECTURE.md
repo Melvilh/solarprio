@@ -51,4 +51,5 @@ container. So the engine knows nothing about Home Assistant.
   list it in `manifest.json` requirements, or vendor a copy. Not decided.
 - Battery (SoC limits, charge/discharge) and EV charger (current steps,
   minimum 6 A) need dedicated device kinds; the current two kinds do not model them.
-- Safety: failure behavior when the measurement is lost (currently undefined).
+- Safety: measurement loss is handled (`on_stale`), but the behavior when a device stops
+  responding (command sent, load not actually switched) is not detected: no feedback loop yet.
