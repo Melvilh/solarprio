@@ -1,0 +1,70 @@
+# Example configuration for the standalone runtime.
+# Copy to config.toml and adapt topics, powers and devices to your installation.
+
+[runtime]
+interval_s = 5        # control loop period
+stale_after_s = 30    # a measurement older than this counts as lost
+on_stale = "off"      # "off": switch loads off when the measurement is lost; "hold": keep them as they are
+resend_every_s = 60   # re-send unchanged commands this often
+
+[mqtt]
+host = "mosquitto"
+port = 1883
+# username = "solarprio"
+# password = "change-me"
+
+[source]
+# "export": one topic giving grid power. Positive = exporting to the grid.
+# If your meter reports import as positive, set invert = true.
+mode = "export"
+export_topic = "house/grid/power_w"
+invert = false
+# For JSON payloads such as {"ENERGY": {"Power": 120}}: field = "ENERGY.Power"
+# field = "ENERGY.Power"
+
+# Alternative:
+# mode = "production"
+# production_topic = "house/pv/power_w"
+# consumption_topic = "house/total/power_w"   # total house consumption, managed loads included
+
+# Priority: lower number = served first.
+
+[[device]]
+id = "dimmer_heater"
+name = "Water heater (dimmer)"
+priority = 1
+kind = "proportional"
+power_w = 2000
+min_power_w = 100
+  [device.actuator]
+  type = "mqtt"
+  topic = "router/heater/set_percent"
+  scale = "percent"      # or "watts"
+
+[[device]]
+id = "pool_pump"
+name = "Pool pump"
+priority = 2
+kind = "on_off"
+power_w = 800
+min_on_s = 600
+min_off_s = 300
+start_margin_w = 100
+stay_tolerance_w = 200
+  [device.actuator]
+  type = "mqtt"
+  topic = "router/pool/set"
+  payload_on = "ON"
+  payload_off = "OFF"
+
+[[device]]
+id = "server"
+name = "Compute server"
+priority = 3
+kind = "on_off"
+power_w = 300
+min_on_s = 300
+  [device.actuator]
+  type = "http"
+  url = "http://192.168.1.50:8080/compute/{state}"
+  method = "POST"

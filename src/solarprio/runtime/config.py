@@ -1,0 +1,117 @@
+"""TOML configuration for the standalone runtime."""
+
+from __future__ import annotations
+
+import tomllib
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
+
+from ..models import Device, DeviceKind
+
+
+class ConfigError(ValueError):
+    pass
+
+
+@dataclass
+class RuntimeConfig:
+    interval_s: float = 5.0
+    stale_after_s: float = 30.0  # measurement older than this is considered lost
+    on_stale: str = "off"  # "off" (safe default) or "hold"
+    resend_every_s: float = 60.0  # re-send unchanged commands, in case a device missed one
+
+
+@dataclass
+class MqttConfig:
+    host: str = "localhost"
+    port: int = 1883
+    username: str | None = None
+    password: str | None = None
+    client_id: str = "solarprio"
+
+
+@dataclass
+class SourceConfig:
+    mode: str  # "export" or "production"
+    topics: dict[str, str]  # export: {"export"}; production: {"production", "consumption"}
+    field: str | None = None  # JSON field to extract from payloads, if payloads are JSON
+    invert: bool = False  # export: meter reports import as positive
+
+
+@dataclass
+class ActuatorConfig:
+    type: str  # "mqtt" or "http"
+    options: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class Config:
+    runtime: RuntimeConfig
+    mqtt: MqttConfig
+    source: SourceConfig
+    devices: list[Device]
+    actuators: dict[str, ActuatorConfig]
+
+
+def load_config(path: str | Path) -> Config:
+    with open(path, "rb") as f:
+        raw = tomllib.load(f)
+    return parse_config(raw)
+
+
+def parse_config(raw: dict[str, Any]) -> Config:
+    runtime = RuntimeConfig(**raw.get("runtime", {}))
+    if runtime.on_stale not in ("off", "hold"):
+        raise ConfigError("runtime.on_stale must be 'off' or 'hold'")
+    if runtime.interval_s <= 0:
+        raise ConfigError("runtime.interval_s must be > 0")
+
+    mqtt = MqttConfig(**raw.get("mqtt", {}))
+
+    src = raw.get("source")
+    if not src:
+        raise ConfigError("missing [source] section")
+    mode = src.get("mode")
+    if mode == "export":
+        needed = ["export_topic"]
+    elif mode == "production":
+        needed = ["production_topic", "consumption_topic"]
+    else:
+        raise ConfigError("source.mode must be 'export' or 'production'")
+    for key in needed:
+        if key not in src:
+            raise ConfigError(f"source.{key} is required in {mode} mode")
+    source = SourceConfig(
+        mode=mode,
+        topics={k.removesuffix("_topic"): src[k] for k in needed},
+        field=src.get("field"),
+        invert=bool(src.get("invert", False)),
+    )
+
+    devices: list[Device] = []
+    actuators: dict[str, ActuatorConfig] = {}
+    for entry in raw.get("device", []):
+        entry = dict(entry)
+        actuator = entry.pop("actuator", None)
+        if actuator is None or "type" not in actuator:
+            raise ConfigError(f"device {entry.get('id')!r}: missing actuator.type")
+        try:
+            entry["kind"] = DeviceKind(entry["kind"])
+            device = Device(**entry)
+        except (KeyError, TypeError, ValueError) as e:
+            raise ConfigError(f"invalid device {entry.get('id')!r}: {e}") from e
+        if actuator["type"] not in ("mqtt", "http"):
+            raise ConfigError(f"device {device.id!r}: unknown actuator type {actuator['type']!r}")
+        devices.append(device)
+        actuators[device.id] = ActuatorConfig(
+            type=actuator["type"], options={k: v for k, v in actuator.items() if k != "type"}
+        )
+
+    if not devices:
+        raise ConfigError("no [[device]] defined")
+    ids = [d.id for d in devices]
+    if len(set(ids)) != len(ids):
+        raise ConfigError("duplicate device ids")
+
+    return Config(runtime=runtime, mqtt=mqtt, source=source, devices=devices, actuators=actuators)

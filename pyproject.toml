@@ -12,7 +12,11 @@ license = { text = "Apache-2.0" }
 dependencies = []
 
 [project.optional-dependencies]
-dev = ["pytest"]
+runtime = ["paho-mqtt>=2.0"]
+dev = ["pytest", "paho-mqtt>=2.0", "amqtt"]
+
+[project.scripts]
+solarprio = "solarprio.runtime.app:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

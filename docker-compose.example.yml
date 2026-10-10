@@ -1,0 +1,17 @@
+services:
+  solarprio:
+    build: .
+    restart: unless-stopped
+    volumes:
+      - ./config.toml:/config/config.toml:ro
+    depends_on:
+      - mosquitto
+
+  # Remove this service if you already run an MQTT broker.
+  mosquitto:
+    image: eclipse-mosquitto:2
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
