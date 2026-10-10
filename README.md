@@ -93,6 +93,10 @@ Behaviours worth knowing:
 - **Victron** (GX device, Multi / Quattro, EV Charging Station): see [docs/VICTRON.md](docs/VICTRON.md) and
   `config.victron.example.toml`. Built from Victron's documentation and tested only against a simulated GX device.
 
+- **ESPHome solar router** (triac / SSR for a water heater): see [docs/ESPHOME_ROUTER.md](docs/ESPHOME_ROUTER.md) for
+  letting solarprio set its power, with a watchdog. Checked with `esphome config`; the C++ was not compiled and nothing
+  was run on hardware.
+
 ## What is and is not verified
 
 Verified by automated tests: the allocation engine (including mutation checks on the safety rules), the

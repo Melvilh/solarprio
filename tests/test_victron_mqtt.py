@@ -145,7 +145,10 @@ max_current_a = 16
             # the simulated GX stops publishing 3 s after the last keep-alive: the runtime must have kept it alive
             await asyncio.sleep(KEEPALIVE_TIMEOUT_S + 1.5)
             assert time.monotonic() < venus.alive_until, "keep-alive was not sent often enough: Venus went silent"
-            assert venus.start == 1 and venus.set_current == 10.0  # still routing after the keep-alive window
+            # still routing after the keep-alive window. Wait for the steady value instead of sampling one instant:
+            # the three phases and the measured power arrive as separate messages, so a single reading can mix old and
+            # new values (a one-cycle transient that the next cycle corrects).
+            await until(lambda: venus.start == 1 and venus.set_current == 10.0, "still 10 A after the keep-alive window", timeout=5.0)
         finally:
             os.kill(os.getpid(), signal.SIGTERM)  # same path as `docker stop`
             await asyncio.wait_for(task, 10)

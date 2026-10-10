@@ -93,6 +93,7 @@ def _details_schema(kind: str, values: dict[str, Any], next_priority: int) -> vo
         fields[required("power_w", vol.UNDEFINED)] = _number("W", 1)
         fields[required("min_power_w", 0)] = _number("W")
         fields[required("scale", "percent")] = _select(["percent", "watts"])
+        fields[optional("measured_entity")] = _entity(["sensor"])
     else:  # on_off
         fields[required("entity_id", vol.UNDEFINED)] = _entity(["switch", "input_boolean", "light"])
         fields[required("priority", next_priority)] = _number(None, 1, 999)

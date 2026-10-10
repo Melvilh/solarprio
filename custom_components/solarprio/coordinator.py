@@ -28,6 +28,7 @@ from .const import (
     DOMAIN,
     MODE_EXPORT,
     ON_STALE_HOLD,
+    RESEND_EVERY_S,
 )
 from .core import Device, DeviceKind, DeviceReading, Engine, available_from_export, available_from_production
 
@@ -66,7 +67,7 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.device_cfgs: dict[str, dict[str, Any]] = {d["id"]: d for d in entry.options.get(CONF_DEVICES, [])}
         self.engine = Engine([build_device(d) for d in self.device_cfgs.values()])
         self.enabled = True
-        self._sent: dict[str, float] = {}
+        self._sent: dict[str, tuple[float, float]] = {}  # device -> (power_w, monotonic time it was sent)
 
     # ---- measurement -------------------------------------------------
 
@@ -151,11 +152,11 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 return self._result("measurement_lost_hold", None)
             _LOGGER.warning("Measurement lost (%s): switching loads off", err)
             commands = self.engine.step(0.0, now)  # still honors min on/off durations
-            await self._apply(commands)
+            await self._apply(commands, now)
             return self._result("measurement_lost_off", None)
 
         commands = self.engine.step(available, now)
-        await self._apply(commands)
+        await self._apply(commands, now)
         return self._result("routing", available)
 
     def _result(self, status: str, available: float | None) -> dict[str, Any]:
@@ -166,17 +167,24 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "commands": {i: self.engine.state(i).power_w for i in self.device_cfgs},
         }
 
-    async def _apply(self, commands: dict[str, float]) -> None:
+    async def _apply(self, commands: dict[str, float], now: float) -> None:
+        """Send changed commands, and re-send unchanged ones every ``RESEND_EVERY_S``.
+
+        The periodic re-send is a heartbeat: a device with a watchdog (an ESPHome router that drops to 0 W when
+        it stops hearing from us) needs to keep receiving orders even when the setpoint does not change.
+        """
         for device_id, power in commands.items():
-            if self._sent.get(device_id) == power:
+            previous = self._sent.get(device_id)
+            if previous is not None and previous[0] == power and now - previous[1] < RESEND_EVERY_S:
                 continue
             try:
                 await self._call(self.device_cfgs[device_id], power)
             except Exception:  # noqa: BLE001 - one failing device must not stop the others
                 _LOGGER.exception("Failed to apply %.0f W to %s", power, device_id)
-                self.engine.rollback_command(device_id, self._sent.get(device_id, 0.0))  # still at the last confirmed value
+                # still at the last confirmed value
+                self.engine.rollback_command(device_id, previous[0] if previous else 0.0)
                 continue
-            self._sent[device_id] = power
+            self._sent[device_id] = (power, now)
 
     async def _call(self, cfg: dict[str, Any], power: float) -> None:
         entity = cfg["entity_id"]

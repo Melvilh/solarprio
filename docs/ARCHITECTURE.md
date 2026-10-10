@@ -59,7 +59,7 @@ container. So the engine knows nothing about Home Assistant.
   No PyPI package is needed.
 - `config_flow.py`: measurement source. Options flow: add / edit / remove devices and their
   priority number.
-- `coordinator.py`: reads the sensors (kW converted to W, unavailable or too-old values count as
+- `coordinator.py`: re-sends unchanged commands every `RESEND_EVERY_S` (30 s): a heartbeat for devices with a watchdog. Reads the sensors (kW converted to W, unavailable or too-old values count as
   lost), runs the engine, calls services (`homeassistant.turn_on/off`, `light.turn_on`,
   `number.set_value`). Loads are switched off when the entry is unloaded and when HA stops.
 - `panel.py` + `frontend/panel.js`: sidebar panel (custom element, no build step, no dependency).

@@ -24,3 +24,6 @@ DEFAULT_STALE_AFTER = 60
 
 PANEL_URL_PATH = "solarprio"
 PANEL_STATIC_URL = "/solarprio_static/panel.js"
+
+# Unchanged commands are sent again this often (heartbeat for devices with a watchdog, and for devices that missed one).
+RESEND_EVERY_S = 30.0
