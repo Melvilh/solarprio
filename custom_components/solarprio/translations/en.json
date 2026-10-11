@@ -17,7 +17,11 @@
           "consumption_entity": "Total consumption sensor",
           "interval_s": "Control period",
           "stale_after_s": "Measurement considered lost after",
-          "on_stale": "When the measurement is lost"
+          "on_stale": "When the measurement is lost",
+          "margin_w": "Export margin to keep"
+        },
+        "data_description": {
+          "margin_w": "Watts left unrouted so measurement noise and latency do not turn into grid import."
         }
       }
     },

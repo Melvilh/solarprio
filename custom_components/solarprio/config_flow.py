@@ -16,6 +16,7 @@ from .const import (
     CONF_EXPORT_ENTITY,
     CONF_INTERVAL,
     CONF_INVERT,
+    CONF_MARGIN,
     CONF_MODE,
     CONF_ON_STALE,
     CONF_PRODUCTION_ENTITY,
@@ -144,6 +145,7 @@ class SolarPrioConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_INTERVAL, default=DEFAULT_INTERVAL): _number("s", 1, 300),
                 vol.Required(CONF_STALE_AFTER, default=DEFAULT_STALE_AFTER): _number("s", 5, 3600),
                 vol.Required(CONF_ON_STALE, default=ON_STALE_OFF): _select([ON_STALE_OFF, ON_STALE_HOLD]),
+                vol.Required(CONF_MARGIN, default=0): _number("W", 0, 2000),
             }
         )
         return self.async_show_form(step_id="entities", data_schema=vol.Schema(fields))

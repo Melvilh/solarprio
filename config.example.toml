@@ -19,6 +19,7 @@ port = 1883
 mode = "export"
 export_topic = "house/grid/power_w"
 invert = false
+# margin_w = 60        # watts left unrouted on purpose, so measurement noise and latency do not become grid import
 # For JSON payloads such as {"ENERGY": {"Power": 120}}: field = "ENERGY.Power"
 # field = "ENERGY.Power"
 

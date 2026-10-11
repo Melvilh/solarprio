@@ -10,6 +10,7 @@ CONF_INVERT = "invert"
 CONF_INTERVAL = "interval_s"
 CONF_STALE_AFTER = "stale_after_s"
 CONF_ON_STALE = "on_stale"
+CONF_MARGIN = "margin_w"
 
 MODE_EXPORT = "export"
 MODE_PRODUCTION = "production"

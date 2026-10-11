@@ -50,8 +50,10 @@ class MqttPowerSource:
             export = self._read("export")
             if self._cfg.invert:
                 export = -export
-            return available_from_export(export, routed_w)
-        return available_from_production(self._read("production"), self._read("consumption"), routed_w)
+            available = available_from_export(export, routed_w)
+        else:
+            available = available_from_production(self._read("production"), self._read("consumption"), routed_w)
+        return available - self._cfg.margin_w
 
 
 TRUTHY = {"on", "true", "1", "connected", "plugged", "plugged_in", "yes"}

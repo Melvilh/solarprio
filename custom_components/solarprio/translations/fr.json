@@ -17,7 +17,11 @@
           "consumption_entity": "Capteur de consommation totale",
           "interval_s": "Période de régulation",
           "stale_after_s": "Mesure considérée perdue après",
-          "on_stale": "Quand la mesure est perdue"
+          "on_stale": "Quand la mesure est perdue",
+          "margin_w": "Marge d'injection à conserver"
+        },
+        "data_description": {
+          "margin_w": "Watts volontairement non routés pour que le bruit de mesure et la latence ne deviennent pas du soutirage."
         }
       }
     },

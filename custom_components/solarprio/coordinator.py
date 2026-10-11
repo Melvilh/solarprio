@@ -19,6 +19,7 @@ from .const import (
     CONF_EXPORT_ENTITY,
     CONF_INTERVAL,
     CONF_INVERT,
+    CONF_MARGIN,
     CONF_MODE,
     CONF_ON_STALE,
     CONF_PRODUCTION_ENTITY,
@@ -125,17 +126,20 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.engine.set_reading(device_id, self._read_reading(cfg))
 
     def _available_w(self) -> float:
+        """Surplus the engine may hand out, minus the export margin kept on purpose."""
         routed = self.engine.routed_w
         if self._conf[CONF_MODE] == MODE_EXPORT:
             export = self._read_watts(self._conf[CONF_EXPORT_ENTITY])
             if self._conf.get(CONF_INVERT):
                 export = -export
-            return available_from_export(export, routed)
-        return available_from_production(
-            self._read_watts(self._conf[CONF_PRODUCTION_ENTITY]),
-            self._read_watts(self._conf[CONF_CONSUMPTION_ENTITY]),
-            routed,
-        )
+            available = available_from_export(export, routed)
+        else:
+            available = available_from_production(
+                self._read_watts(self._conf[CONF_PRODUCTION_ENTITY]),
+                self._read_watts(self._conf[CONF_CONSUMPTION_ENTITY]),
+                routed,
+            )
+        return available - float(self._conf.get(CONF_MARGIN, 0) or 0)
 
     # ---- control loop ------------------------------------------------
 

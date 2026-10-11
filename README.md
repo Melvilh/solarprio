@@ -95,7 +95,8 @@ Behaviours worth knowing:
 
 - **ESPHome solar router** (triac / SSR for a water heater): see [docs/ESPHOME_ROUTER.md](docs/ESPHOME_ROUTER.md) for
   letting solarprio set its power, with a watchdog. Checked with `esphome config`; the C++ was not compiled and nothing
-  was run on hardware.
+  was run on hardware. A complete water-heater example (Linky with separate withdrawn and injected sensors, export
+  margin) is in [docs/WATER_HEATER_EXAMPLE.md](docs/WATER_HEATER_EXAMPLE.md).
 
 ## What is and is not verified
 

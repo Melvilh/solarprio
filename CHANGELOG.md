@@ -22,6 +22,9 @@ First public version (alpha).
 - Home Assistant: unchanged commands are re-sent every 30 s (heartbeat for devices with a watchdog); adjustable devices
   accept a measured-power entity.
 - Guide for driving an ESPHome solar router from solarprio with a watchdog (`docs/ESPHOME_ROUTER.md`).
+- Export margin (`margin_w`, Home Assistant and standalone): watts deliberately left unrouted.
+- Water-heater example with a template sensor for a Linky that reports withdrawn and injected power separately
+  (`docs/WATER_HEATER_EXAMPLE.md`).
 
 ### Safety behaviour
 - Undelivered commands (broker down, service error) are retried and never counted as routed power.

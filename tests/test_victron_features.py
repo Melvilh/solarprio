@@ -157,3 +157,18 @@ def test_keepalive_interval_is_validated():
         parse_config({**base, "mqtt": {"keepalive_topic": "R/id/keepalive", "keepalive_interval_s": 0}})
     cfg = parse_config({**base, "mqtt": {"keepalive_topic": "R/id/keepalive"}})
     assert cfg.mqtt.keepalive_interval_s == 30  # under Victron's 60 s timeout
+
+
+# ------------------------------------------------------------- export margin
+
+def test_margin_is_kept_back_from_the_available_power():
+    bus = FakeBus()
+    feed_phases(bus, [-300, -250, -100])  # meter reads -650 W; with invert that is 650 W exported
+    assert run(source(bus, invert=True, margin_w=50).read_available_w(0)) == 600
+    assert run(source(bus, invert=True, margin_w=50).read_available_w(1000)) == 1600  # routed power is still added back first
+
+
+def test_a_negative_margin_is_refused():
+    base = {"mqtt": {"host": "h"}, "source": {"mode": "export", "topics": {"export": "t"}, "margin_w": -5}, "devices": []}
+    with pytest.raises(ConfigError):
+        parse_config(base)

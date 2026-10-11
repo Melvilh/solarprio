@@ -41,6 +41,7 @@ class SourceConfig:
     topics: dict[str, list[str]]  # export: {"export"}; production: {"production", "consumption"}; several = summed
     field: str | None = None  # JSON field to extract from payloads, if payloads are JSON
     invert: bool = False  # export: meter reports import as positive
+    margin_w: float = 0.0  # watts deliberately left unrouted (keeps a small export despite measurement noise and latency)
 
 
 @dataclass
@@ -114,11 +115,14 @@ def parse_config(raw: dict[str, Any]) -> Config:
         if not isinstance(names, list) or not names or not all(isinstance(n, str) and n for n in names):
             raise ConfigError(f"source.{key} must be a topic or a non-empty list of topics")
         topics[key.removesuffix("_topic")] = names
+    if float(src.get("margin_w", 0.0)) < 0:
+        raise ConfigError("source.margin_w must be >= 0")
     source = SourceConfig(
         mode=mode,
         topics=topics,
         field=src.get("field"),
         invert=bool(src.get("invert", False)),
+        margin_w=float(src.get("margin_w", 0.0)),
     )
 
     devices: list[Device] = []
