@@ -1,7 +1,7 @@
 {
   "domain": "solarprio",
   "name": "solarprio",
-  "codeowners": [],
+  "codeowners": ["@Melvilh"],
   "config_flow": true,
   "dependencies": [
     "http",
@@ -9,10 +9,10 @@
     "panel_custom",
     "websocket_api"
   ],
-  "documentation": "https://example.invalid/solarprio",
+  "documentation": "https://github.com/Melvilh/solarprio",
   "integration_type": "service",
   "iot_class": "calculated",
-  "issue_tracker": "https://example.invalid/solarprio/issues",
+  "issue_tracker": "https://github.com/Melvilh/solarprio/issues",
   "requirements": [],
   "version": "0.1.0"
 }

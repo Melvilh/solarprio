@@ -1,4 +1,4 @@
-# solarprio (provisional name)
+# solarprio
 
 **Route your solar surplus where you want it, in the order you choose.**
 Set the priority of your loads (water heater, EV charger, battery, heat pump, servers...) by dragging
@@ -37,7 +37,7 @@ This software switches electrical loads. It is **not a safety device** and comes
 ### Home Assistant (HACS, custom repository)
 
 1. In HACS, open the menu (three dots) > **Custom repositories**.
-2. Add `https://github.com/OWNER/REPO` as type **Integration**, then **Add**.
+2. Add `https://github.com/Melvilh/solarprio` as type **Integration**, then **Add**.
 3. Download the integration from HACS and restart Home Assistant.
 4. *Settings > Devices & services > Add integration > solarprio.*
 

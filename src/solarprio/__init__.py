@@ -1,4 +1,4 @@
-"""solarprio (provisional name): priority-based solar surplus routing engine."""
+"""solarprio: priority-based solar surplus routing engine."""
 
 from .engine import Engine
 from .models import Device, DeviceKind, DeviceReading, DeviceState

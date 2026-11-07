@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "solarprio"
 version = "0.1.0"
-description = "Priority-based solar surplus routing engine (provisional name)"
+description = "Priority-based solar surplus routing engine"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
