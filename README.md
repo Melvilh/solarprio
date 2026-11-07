@@ -28,6 +28,9 @@ This software switches electrical loads. It is **not a safety device** and comes
   Add, edit and delete devices, and change the measurement settings, from the same panel.
 - **Device types:** on/off loads, adjustable loads (dimmer, router), batteries, EV chargers, and computing tasks (a "go"
   signal that never switches a power supply, see [docs/TASKS.md](docs/TASKS.md)).
+- **Central regulation:** all the decisions are in solarprio (tank temperatures, off-peak, sanitary minimum, subscription
+  cap, smooth ramps, emergency cut), for every heater and variable load at once; a low-cost solar router only has to be an
+  actuator. Ready-made models for water heaters. See [docs/REGULATION.md](docs/REGULATION.md).
 - **Many devices:** any number, started together when the surplus allows; setup pre-filled from the Home Assistant Energy
   dashboard, with import and copy of devices. See [docs/MANY_DEVICES.md](docs/MANY_DEVICES.md).
 - **Off-peak top-up:** during your off-peak hours a device is fed from the grid until it stops consuming (a hot water

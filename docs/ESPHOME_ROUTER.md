@@ -1,5 +1,17 @@
 # Driving an ESPHome solar router from solarprio
 
+> **Recommended: the router as an actuator only.** Let solarprio take every decision (temperatures, off-peak, sanitary
+> minimum, subscription, smooth ramps) and keep in the ESP only what protects the equipment. Use
+> [`examples/esphome/solar-router-actuator.yaml`](../examples/esphome/solar-router-actuator.yaml) and follow
+> [WATER_HEATER_EXAMPLE.md](WATER_HEATER_EXAMPLE.md). What the ESP then does: applies the order in watts of the number
+> *Consigne externe (W)*; goes to 0 W by itself at boot, when Home Assistant disconnects, when no order arrives within the
+> delay (default 120 s, solarprio resends every 30 s), when the triac is too hot, when the tank probe is missing and above
+> an absolute safety temperature; reports the water temperature and the real power (R x I squared). Passed `esphome
+> config`; the C++ was not compiled and nothing was run on hardware.
+>
+> The rest of this page describes the **other** way: keeping the router's own regulation and adding an external-control
+> input to it. Only useful if you want the router to keep deciding by itself.
+
 An ESPHome router (a triac or SSR output for a water heater, regulated from a grid measurement) normally closes its
 own loop: it measures the grid and decides how much to heat. solarprio decides **between several loads** (heater,
 EV charger, battery...), so the router must also accept a power order from outside. This page describes a pattern

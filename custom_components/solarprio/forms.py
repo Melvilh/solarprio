@@ -14,7 +14,9 @@ from homeassistant.util import slugify
 
 from .const import (
     CONF_CONSUMPTION_ENTITY,
+    CONF_EMERGENCY,
     CONF_EXPORT_ENTITY,
+    CONF_HOUSE_ENTITY,
     CONF_INTERVAL,
     CONF_INVERT,
     CONF_MARGIN,
@@ -23,6 +25,7 @@ from .const import (
     CONF_ON_STALE,
     CONF_PRODUCTION_ENTITY,
     CONF_STALE_AFTER,
+    CONF_SUBSCRIPTION,
     DEFAULT_INTERVAL,
     DEFAULT_STALE_AFTER,
     MODE_EXPORT,
@@ -51,6 +54,7 @@ class Field:
     max: float | None = None
     options: tuple[str, ...] = ()
     show_if: tuple[str, str] | None = None  # shown only when the other field has this value
+    advanced: bool = False  # tucked away behind "advanced settings" in the panel
 
     def as_dict(self) -> dict[str, Any]:
         out = asdict(self)
@@ -59,20 +63,36 @@ class Field:
         return out
 
 
-def _text(name: str, required: bool = False, default: Any = None) -> Field:
-    return Field(name, "text", required, default)
+def _text(name: str, required: bool = False, default: Any = None, advanced: bool = False) -> Field:
+    return Field(name, "text", required, default, advanced=advanced)
 
 
-def _entity(name: str, domains: tuple[str, ...], required: bool = False) -> Field:
-    return Field(name, "entity", required, None, domains=domains)
+def _entity(name: str, domains: tuple[str, ...], required: bool = False, advanced: bool = False) -> Field:
+    return Field(name, "entity", required, None, domains=domains, advanced=advanced)
 
 
-def _number(name: str, unit: str | None, default: Any = None, minimum: float = 0, maximum: float = MAX_W, required: bool = True) -> Field:
-    return Field(name, "number", required, default, unit=unit, min=minimum, max=maximum)
+def _number(name: str, unit: str | None, default: Any = None, minimum: float = 0, maximum: float = MAX_W, required: bool = True,
+            advanced: bool = False) -> Field:
+    return Field(name, "number", required, default, unit=unit, min=minimum, max=maximum, advanced=advanced)
 
 
-def _select(name: str, options: tuple[str, ...], default: str) -> Field:
-    return Field(name, "select", True, default, options=options)
+def _select(name: str, options: tuple[str, ...], default: str, advanced: bool = False) -> Field:
+    return Field(name, "select", True, default, options=options, advanced=advanced)
+
+
+def _flag(name: str, advanced: bool = False) -> Field:
+    return Field(name, "boolean", False, False, advanced=advanced)
+
+
+def _temperature_fields() -> list[Field]:
+    """Tank temperature limits for a water heater (or anything heated to a temperature), read from one sensor."""
+    return [
+        _entity("temp_entity", ("sensor",)),
+        _number("temp_max_solar", "°C", None, -50, 150, required=False),
+        _number("temp_max_offpeak", "°C", None, -50, 150, required=False),
+        _number("temp_hysteresis", "°C", 3, 0, 50, advanced=True),
+        _number("temp_min", "°C", None, -50, 150, required=False, advanced=True),
+    ]
 
 
 def device_fields(kind: str, next_priority: int = 1) -> list[Field]:
@@ -98,11 +118,11 @@ def device_fields(kind: str, next_priority: int = 1) -> list[Field]:
             _entity("entity_id", ("number", "input_number"), True),  # charge setpoint
             _number("priority", None, next_priority, 1, 999),
             _number("power_w", "W", None, 1),
-            _number("min_power_w", "W", 0),
+            _number("min_power_w", "W", 0, advanced=True),
             _select("scale", ("watts", "percent"), "watts"),
             _entity("soc_entity", ("sensor", "number", "input_number")),
             _number("soc_max", "%", 100, 1, 100),
-            _number("soc_resume_margin", "%", 2, 0, 50),
+            _number("soc_resume_margin", "%", 2, 0, 50, advanced=True),
             _entity("measured_entity", ("sensor",)),
         ]
     elif kind == DeviceKind.PROPORTIONAL.value:
@@ -110,9 +130,13 @@ def device_fields(kind: str, next_priority: int = 1) -> list[Field]:
             _entity("entity_id", ("light", "number", "input_number"), True),
             _number("priority", None, next_priority, 1, 999),
             _number("power_w", "W", None, 1),
-            _number("min_power_w", "W", 0),
             _select("scale", ("percent", "watts"), "percent"),
             _entity("measured_entity", ("sensor",)),
+            *_temperature_fields(),
+            _number("min_power_w", "W", 0, advanced=True),
+            _number("hold_s", "s", 0, 0, 600, advanced=True),
+            _number("ramp_up_w", "W", None, 1, MAX_W, required=False, advanced=True),
+            _number("deadband_w", "W", 0, advanced=True),
         ]
     elif kind == DeviceKind.TASK.value:
         fields += [
@@ -126,19 +150,22 @@ def device_fields(kind: str, next_priority: int = 1) -> list[Field]:
             _number("priority", None, next_priority, 1, 999),
             _number("power_w", "W", None, 1),
             _entity("measured_entity", ("sensor",)),
+            *_temperature_fields(),
         ]
 
     if kind != DeviceKind.BATTERY.value:
         fields += [
-            _text("offpeak"),
             _entity("offpeak_entity", OFFPEAK_SIGNAL_DOMAINS),
-            _text("offpeak_values"),
+            _text("offpeak", advanced=True),
+            _text("offpeak_values", advanced=True),
         ]
         if kind != DeviceKind.TASK.value:  # a task has nothing to measure, so nothing that can be "finished"
-            fields += [_text("reset_at"), _number("done_below_w", "W", 0), _number("done_after_s", "s", 120)]
-    fields += [_number("min_on_s", "s", 0), _number("min_off_s", "s", 0)]
+            fields += [_text("reset_at", advanced=True), _number("done_below_w", "W", 0, advanced=True),
+                       _number("done_after_s", "s", 120, advanced=True)]
+            fields += [_flag("surplus_only", advanced=True)]
+    fields += [_number("min_on_s", "s", 0, advanced=True), _number("min_off_s", "s", 0, advanced=True)]
     if kind in (DeviceKind.ON_OFF.value, DeviceKind.EV_CHARGER.value, DeviceKind.TASK.value):
-        fields += [_number("start_margin_w", "W", 0), _number("stay_tolerance_w", "W", 0)]
+        fields += [_number("start_margin_w", "W", 0, advanced=True), _number("stay_tolerance_w", "W", 0, advanced=True)]
     return fields
 
 
@@ -151,12 +178,31 @@ def site_fields() -> list[Field]:
         Field(CONF_INVERT, "boolean", False, False, show_if=(CONF_MODE, MODE_EXPORT)),
         Field(CONF_PRODUCTION_ENTITY, "entity", True, None, domains=sensor, show_if=(CONF_MODE, MODE_PRODUCTION)),
         Field(CONF_CONSUMPTION_ENTITY, "entity", True, None, domains=sensor, show_if=(CONF_MODE, MODE_PRODUCTION)),
-        _number(CONF_INTERVAL, "s", DEFAULT_INTERVAL, 1, 300),
-        _number(CONF_STALE_AFTER, "s", DEFAULT_STALE_AFTER, 5, 3600),
-        _select(CONF_ON_STALE, (ON_STALE_OFF, ON_STALE_HOLD), ON_STALE_OFF),
+        _number(CONF_INTERVAL, "s", DEFAULT_INTERVAL, 1, 300, advanced=True),
+        _number(CONF_STALE_AFTER, "s", DEFAULT_STALE_AFTER, 0, 3600, advanced=True),
+        _select(CONF_ON_STALE, (ON_STALE_OFF, ON_STALE_HOLD), ON_STALE_OFF, advanced=True),
         _number(CONF_MARGIN, "W", 0, 0, 2000),
-        _number(CONF_OFFPEAK_BUDGET, "W", 0),
+        _number(CONF_OFFPEAK_BUDGET, "W", 0, advanced=True),
+        _number(CONF_SUBSCRIPTION, "VA", None, 500, 100_000, required=False),
+        _entity(CONF_HOUSE_ENTITY, sensor),
+        _number(CONF_EMERGENCY, "W", None, 1, 20_000, required=False, advanced=True),
     ]
+
+
+# Starting points for the commonest installations, so that a beginner only picks the entities. The values are the usual ones
+# for a domestic water heater on a solar router: check them against your own installation.
+PRESETS: dict[str, dict[str, Any]] = {
+    "water_heater_dimmer": {
+        "kind": DeviceKind.PROPORTIONAL.value,
+        "values": {"scale": "watts", "min_power_w": 15, "min_on_s": 30, "min_off_s": 30, "temp_max_solar": 65,
+                   "temp_max_offpeak": 60, "temp_hysteresis": 3, "temp_min": 40, "hold_s": 8, "ramp_up_w": 200, "deadband_w": 15},
+    },
+    "water_heater_relay": {
+        "kind": DeviceKind.ON_OFF.value,
+        "values": {"min_on_s": 300, "min_off_s": 300, "temp_max_solar": 65, "temp_max_offpeak": 60, "temp_hysteresis": 3,
+                   "temp_min": 40},
+    },
+}
 
 
 # ---- validation and merging (used by the options flow and by the panel) ------------------------------------
@@ -178,6 +224,8 @@ def clean_device(kind: str, user_input: dict[str, Any]) -> dict[str, Any]:
         if f.type == "entity" and not str(value).startswith(tuple(f"{d}." for d in f.domains)):
             raise ValueError(f"{f.name} must be a {' / '.join(f.domains)} entity")
     device.update(kind=kind, priority=int(user_input["priority"]))
+    if any(device.get(k) is not None for k in ("temp_max_solar", "temp_max_offpeak", "temp_min")) and not device.get("temp_entity"):
+        raise ValueError("temperature limits need a temperature sensor")
     if (device.get("offpeak") or device.get("offpeak_entity")) and not device.get("measured_entity") and kind != DeviceKind.TASK.value:
         raise ValueError("off-peak top-up needs a measured power entity")  # it could not tell when the device is finished
     if "phases" in device:
@@ -218,10 +266,16 @@ def clean_site(user_input: dict[str, Any]) -> dict[str, Any]:
             continue
         value = user_input.get(f.name, f.default)  # a setting missing from an older entry takes its default
         if f.type == "entity":
-            if not value or not str(value).startswith(tuple(f"{d}." for d in f.domains)):
+            if value in (None, ""):
+                if f.required:
+                    raise ValueError(f.name)
+                continue
+            if not str(value).startswith(tuple(f"{d}." for d in f.domains)):
                 raise ValueError(f.name)
             out[f.name] = value
         elif f.type == "number":
+            if value in (None, "") and not f.required:
+                continue
             try:
                 number = float(value)
             except (TypeError, ValueError):
@@ -235,6 +289,8 @@ def clean_site(user_input: dict[str, Any]) -> dict[str, Any]:
             out[f.name] = value
         elif f.type == "boolean":
             out[f.name] = bool(value)
+    if out.get(CONF_SUBSCRIPTION) and not out.get(CONF_HOUSE_ENTITY):
+        raise ValueError(CONF_HOUSE_ENTITY)  # the cap needs to know what the house draws
     return out
 
 

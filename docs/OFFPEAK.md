@@ -38,7 +38,12 @@ change, with no hours to maintain.
   only those count.
 - **Unknown or unavailable never starts anything**, and a sensor that flaps to unavailable and back does not count as
   a new period.
-- Use it **instead of** windows on a device, not together (the form refuses both). It still needs the measured power.
+- Use it **instead of** windows, or **together with** them: when both are filled, both must say off-peak (for example the
+  tariff signal, but only during the night hours). With a **temperature sensor** on the device (see
+  [REGULATION.md](REGULATION.md)) no measured power is needed: the top-up ends when the tank reaches its off-peak maximum.
+- The states meaning off-peak accept a trailing star: `HC*` matches `HC`, `HC..` and `HCHP`. Choose the **tariff period**
+  (a text such as `HC..` / `HP..`), never an energy index (a number that only grows): the panel warns when the entity you pick
+  reports a number.
 
 ## Home Assistant
 

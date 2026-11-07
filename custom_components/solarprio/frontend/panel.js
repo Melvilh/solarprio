@@ -24,6 +24,17 @@ const T = {
     loadFailed: "Could not open the form.",
     saved: "Saved. Loads are switched off for a moment while the new settings are applied.",
     removed: "Deleted.",
+    advanced: "Advanced settings",
+    presetsTitle: "Ready-made",
+    otherTypes: "Other types",
+    staleHint: "A sensor that only reports when its value changes can look old. If this one is fine, set the delay to 0 in Settings.",
+    warnings: {
+      offpeak_numeric: "Saved, but the off-peak entity you picked reports a number (an energy index?). A tariff period reads like HC.. or HP..: check it in Developer tools > States.",
+    },
+    modes: {
+      solar: "solar", offpeak: "off-peak", sanitary: "sanitary minimum", offpeak_limited: "off-peak, limited by the subscription",
+      sanitary_limited: "sanitary minimum, limited by the subscription", hot: "water hot", sensor_fault: "temperature unknown: stopped",
+    },
     opt: { export: "Grid power (one sensor)", production: "Production and consumption", off: "Switch the loads off",
            hold: "Keep the current state", watts: "Watts", percent: "Percent" },
     on: "on",
@@ -70,6 +81,17 @@ const T = {
     loadFailed: "Impossible d'ouvrir le formulaire.",
     saved: "Enregistré. Les charges sont éteintes un instant, le temps d'appliquer les nouveaux réglages.",
     removed: "Supprimé.",
+    advanced: "Réglages avancés",
+    presetsTitle: "Modèles prêts à l'emploi",
+    otherTypes: "Autres types",
+    staleHint: "Un capteur qui ne publie que lorsque sa valeur change peut sembler vieux. Si celui-ci est en bon état, mettez le délai à 0 dans Réglages.",
+    warnings: {
+      offpeak_numeric: "Enregistré, mais l'entité d'heures creuses choisie donne un nombre (un index d'énergie ?). Une période tarifaire se lit HC.. ou HP.. : vérifiez dans Outils de développement > États.",
+    },
+    modes: {
+      solar: "solaire", offpeak: "heures creuses", sanitary: "minimum sanitaire", offpeak_limited: "heures creuses, limité par l'abonnement",
+      sanitary_limited: "minimum sanitaire, limité par l'abonnement", hot: "eau chaude", sensor_fault: "température inconnue : arrêt",
+    },
     opt: { export: "Puissance réseau (un capteur)", production: "Production et consommation", off: "Éteindre les charges",
            hold: "Garder l'état actuel", watts: "Watts", percent: "Pourcentage" },
     on: "marche",
@@ -168,6 +190,10 @@ const STYLE = `
   .field .err { color: var(--error-color, #db4437); font-size: 12px; margin-top: 4px; }
   .form-error { color: var(--error-color, #db4437); font-size: 14px; min-height: 18px; margin: 4px 0 8px; word-break: break-word; }
   .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  details.advanced { border-top: 1px solid var(--divider-color, #ddd); margin: 8px 0 12px; padding-top: 8px; }
+  details.advanced > summary { cursor: pointer; color: var(--primary-color); padding: 6px 0; font-size: 14px; }
+  .dialog h3 { margin: 12px 0 8px; font-size: 14px; font-weight: 500; color: var(--secondary-text-color); }
+  .status .hint2 { display: block; font-size: 12px; margin-top: 4px; font-style: italic; }
   @media (max-width: 520px) { .power { display: none; } .summary .value { font-size: 20px; } header { flex-wrap: wrap; } }
 `;
 
@@ -474,6 +500,17 @@ class SolarPrioPanel extends HTMLElement {
     } else if (detail) {
       detail.remove();
     }
+    let hint = status.querySelector(".hint2");
+    if (s.detail && s.detail.includes("has not reported for")) {
+      if (!hint) {
+        hint = document.createElement("span");
+        hint.className = "hint2";
+        status.appendChild(hint);
+      }
+      if (hint.textContent !== t.staleHint) hint.textContent = t.staleHint;
+    } else if (hint) {
+      hint.remove();
+    }
     const routing = root.getElementById("routing");
     if (routing.checked !== s.routing_enabled) routing.checked = s.routing_enabled;
 
@@ -484,6 +521,8 @@ class SolarPrioPanel extends HTMLElement {
       row.classList.toggle("off", !d.enabled);
       const parts = [d.entity_id, d.enabled ? (on ? t.on : t.off) : t.disabled];
       if (d.connected === false) parts.push(t.unplugged);
+      if (d.temperature_c != null) parts.push(`${Number(d.temperature_c).toFixed(1)} °C`);
+      if (d.mode && t.modes[d.mode]) parts.push(t.modes[d.mode]);
       if (d.offpeak) parts.push(t.offpeak[d.offpeak]);
       if (d.current_a > 0) parts.push(`${d.current_a} A`);
       if (d.soc != null) parts.push(`${t.soc} ${Math.round(d.soc)} %`);
@@ -569,20 +608,26 @@ class SolarPrioPanel extends HTMLElement {
       this._toast(t.loadFailed);
       return;
     }
+    const presets = (form.presets || [])
+      .map((p) => `<button class="btn kind primary" data-kind="${esc(p.kind)}" data-preset="${esc(p.id)}">${esc(p.label)}</button>`)
+      .join("");
     const kinds = Object.entries(form.kinds)
       .map(([k, label]) => `<button class="btn kind" data-kind="${esc(k)}">${esc(label)}</button>`)
       .join("");
-    const el = this._openDialog(t.addTitle, `<p class="hint">${t.chooseType}</p>${kinds}<div class="actions"><button class="btn cancel">${t.cancel}</button></div>`);
-    el.querySelectorAll(".kind").forEach((b) => b.addEventListener("click", () => this._openForm(b.dataset.kind, null)));
+    const el = this._openDialog(
+      t.addTitle,
+      `<p class="hint">${t.chooseType}</p>${presets ? `<h3>${t.presetsTitle}</h3>${presets}<h3>${t.otherTypes}</h3>` : ""}${kinds}<div class="actions"><button class="btn cancel">${t.cancel}</button></div>`,
+    );
+    el.querySelectorAll(".kind").forEach((b) => b.addEventListener("click", () => this._openForm(b.dataset.kind, null, b.dataset.preset || null)));
     el.querySelector(".cancel").addEventListener("click", () => this._closeDialog());
     el.querySelector(".kind").focus();
   }
 
-  async _openForm(kind, deviceId) {
+  async _openForm(kind, deviceId, preset = null) {
     const t = this._t;
     let form;
     try {
-      form = await this._call({ type: "solarprio/device_form", kind, device_id: deviceId || undefined, language: this._lang });
+      form = await this._call({ type: "solarprio/device_form", kind, device_id: deviceId || undefined, preset: preset || undefined, language: this._lang });
     } catch (_) {
       this._toast(t.loadFailed);
       return;
@@ -590,7 +635,7 @@ class SolarPrioPanel extends HTMLElement {
     this._formDialog({
       title: `${deviceId ? t.editTitle : t.addTitle} · ${form.kinds[kind] || kind}`,
       fields: form.fields,
-      values: deviceId ? form.values : {},
+      values: deviceId || preset ? form.values : {},  // a model brings its values; a plain addition starts from the defaults
       save: (values) => this._call({ type: "solarprio/device_save", kind, device_id: deviceId || undefined, values }),
       done: t.saved,
     });
@@ -668,18 +713,20 @@ class SolarPrioPanel extends HTMLElement {
       }
       return `<input type="text" id="${id}" autocomplete="off" value="${esc(v ?? "")}">`;
     };
-    const rows = fields
-      .map((f) => {
-        const v = values[f.name] ?? f.default ?? "";
-        const show = f.show_if ? ` data-show-name="${esc(f.show_if[0])}" data-show-value="${esc(f.show_if[1])}"` : "";
-        return `<div class="field" data-field="${esc(f.name)}"${show}>
-          <label class="lab" for="f-${esc(f.name)}">${esc(f.label)}${f.required ? " *" : ""}</label>
+    const row = (f) => {
+      const v = values[f.name] ?? f.default ?? "";
+      const show = f.show_if ? ` data-show-name="${esc(f.show_if[0])}" data-show-value="${esc(f.show_if[1])}"` : "";
+      return `<div class="field" data-field="${esc(f.name)}"${show}>
+          <label class="lab" for="f-${esc(f.name)}">${esc(f.label)}${f.required && f.default == null ? " *" : ""}</label>
           ${control(f, v)}
           ${f.description ? `<div class="help">${esc(f.description)}</div>` : ""}
           <div class="err" role="alert"></div>
         </div>`;
-      })
-      .join("");
+    };
+    const advancedRows = fields.filter((f) => f.advanced).map(row).join("");
+    const rows =
+      fields.filter((f) => !f.advanced).map(row).join("") +
+      (advancedRows ? `<details class="advanced"><summary>${t.advanced}</summary>${advancedRows}</details>` : "");
     const el = this._openDialog(
       title,
       `<form novalidate>${rows}<div class="form-error" role="alert"></div><div class="actions"><button type="button" class="btn cancel">${t.cancel}</button><button type="submit" class="btn primary">${t.save}</button></div></form>`,
@@ -716,6 +763,8 @@ class SolarPrioPanel extends HTMLElement {
         if ((v === undefined || v === "") && f.required) {
           w.classList.add("invalid");
           w.querySelector(".err").textContent = t.required;
+          const group = w.closest("details");
+          if (group) group.open = true;
           first = first || i;
         } else if (v !== undefined && v !== "") {
           out[f.name] = v;
@@ -730,13 +779,16 @@ class SolarPrioPanel extends HTMLElement {
       const button = form.querySelector("button[type=submit]");
       button.disabled = true;
       this._busy = true;
+      let result;
       try {
-        await save(out);
+        result = await save(out);
       } catch (err) {
         errBox.textContent = `${t.saveFailed}: ${(err && err.message) || (err && err.code) || ""}`;
         const bad = err && err.code === "invalid_settings" && wrap(err.message);
         if (bad) {
           bad.classList.add("invalid");
+          const group = bad.closest("details");
+          if (group) group.open = true;
           input(err.message).focus();
         }
         button.disabled = false;
@@ -746,6 +798,7 @@ class SolarPrioPanel extends HTMLElement {
       }
       this._closeDialog(false);
       this._afterChange(done);
+      ((result && result.warnings) || []).forEach((w) => t.warnings[w] && this._toast(t.warnings[w]));
     });
     const firstInput = el.querySelector("input, select");
     if (firstInput) firstInput.focus();

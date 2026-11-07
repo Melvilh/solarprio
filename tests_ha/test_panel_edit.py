@@ -76,7 +76,8 @@ async def test_editing_a_device_keeps_its_identity_and_enabled_state(hass: HomeA
     {**HEATER, "power_w": 0},  # power must be > 0
     {**HEATER, "offpeak": "25:00-06:00", "measured_entity": "sensor.p"},
     {**HEATER, "offpeak": "22:30-06:30"},  # needs a measured power
-    {**HEATER, "offpeak": "22:30-06:30", "offpeak_entity": "sensor.tariff", "measured_entity": "sensor.p"},  # both
+    {**HEATER, "temp_max_solar": 65},  # temperature limits need a temperature sensor
+    {**HEATER, "temp_entity": "sensor.t", "temp_max_solar": 65, "temp_min": 63},  # minimum too close to the maximum
     {k: v for k, v in HEATER.items() if k != "priority"},
 ])
 async def test_invalid_devices_are_refused_and_nothing_is_saved(hass: HomeAssistant, hass_ws_client, values):
@@ -143,7 +144,7 @@ async def test_settings_changes_are_validated(hass: HomeAssistant, hass_ws_clien
     entry, *_ = await prepare(hass, devices=[], grid="0")
     client = await hass_ws_client(hass)
     good = dict(entry.data)
-    for field, value in (("stale_after_s", 1), ("interval_s", "fast"), ("on_stale", "explode"), ("mode", "magic"),
+    for field, value in (("stale_after_s", -1), ("interval_s", "fast"), ("on_stale", "explode"), ("mode", "magic"),
                          ("export_entity", "switch.not_a_sensor"), ("margin_w", -5)):
         resp = await ws(client, type="solarprio/settings_save", values={**good, field: value})
         assert not resp["success"] and resp["error"]["code"] == "invalid_settings" and resp["error"]["message"] == field, field

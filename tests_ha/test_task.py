@@ -23,7 +23,7 @@ W = {"unit_of_measurement": "W"}
 def test_the_task_form_offers_only_helpers_and_nothing_to_measure():
     fields = {f.name: f for f in device_fields("task")}
     assert fields["entity_id"].domains == ("input_boolean",)
-    assert list(fields) == ["name", "entity_id", "priority", "power_w", "offpeak", "offpeak_entity", "offpeak_values",
+    assert list(fields) == ["name", "entity_id", "priority", "power_w", "offpeak_entity", "offpeak", "offpeak_values",
                             "min_on_s", "min_off_s", "start_margin_w", "stay_tolerance_w"]
     assert not {"measured_entity", "reset_at", "done_below_w", "done_after_s"} & set(fields)
 

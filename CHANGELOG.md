@@ -3,7 +3,24 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
-## [0.1.2] - Unreleased
+## [0.2.0] - Unreleased
+
+### Added
+- **Central regulation**: the engine now decides tank temperatures (solar and off-peak maximums, hysteresis), a sanitary
+  minimum fed from the grid, a dynamic subscription cap for everything fed from the grid on purpose, smooth ramps (wait after
+  a change, largest step, dead band), an emergency cut on grid import, and "surplus only". Settings are per device; the
+  site settings gain the subscription limit, the house power sensor and the emergency threshold. Same in the Docker runtime.
+- Water heater models in the panel (dimmer / relay), advanced settings folded away, the temperature and the mode shown on
+  each row, and a warning when the chosen off-peak entity is a number (an energy index).
+- A solar router that is only an actuator: `examples/esphome/solar-router-actuator.yaml`; guide `docs/REGULATION.md`.
+- Off-peak windows and a tariff signal can be combined (both must say off-peak); `HC*` style wildcard in the states.
+
+### Changed
+- The measurement delay can be 0 (never judge by age, only by availability): a sensor that does not repeat an unchanged value
+  no longer makes the measurement look lost.
+- A grid-fed device cut by the subscription cap is cut at once: no minimum run time holds it on.
+
+## [0.1.2] - 2026-11-07
 
 ### Added
 - **Computing task** category: a "go" signal for computing workloads that follows the solar surplus or the off-peak

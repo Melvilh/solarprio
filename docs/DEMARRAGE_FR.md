@@ -75,6 +75,9 @@ développement > États*, puis ajustez le délai dans *Réglages* si besoin.
 
 - **Marge d'injection** : quelques dizaines de watts laissés non routés évitent que le bruit de mesure se transforme en
   soutirage. Commencez à 50-100 W et ajustez en observant votre compteur.
+- **Régulation centralisée** (températures, sécurité sanitaire, plafond d'abonnement, montée progressive, coupure d'urgence) :
+  [REGULATION.md](REGULATION.md). Le routeur n'est plus qu'un actionneur ; *Ajouter un appareil* propose des **modèles
+  prêts à l'emploi** pour un chauffe-eau.
 - **Chauffe-eau avec routeur ESPHome** : [WATER_HEATER_EXAMPLE.md](WATER_HEATER_EXAMPLE.md) et [ESPHOME_ROUTER.md](ESPHOME_ROUTER.md).
 - **Tâches informatiques** (calculs lourds, sauvegardes déplaçables) : une catégorie à part qui n'envoie qu'un signal « go »,
   jamais une coupure de courant : [TASKS.md](TASKS.md). N'utilisez jamais une charge tout-ou-rien pour un ordinateur ou un serveur.

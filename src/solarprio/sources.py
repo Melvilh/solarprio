@@ -16,15 +16,17 @@ UNKNOWN_WORDS = frozenset({"", "unknown", "unavailable", "none", "null", "nan"})
 def parse_offpeak_state(text: object, off_peak_values: list[str] | tuple[str, ...] | None = None) -> bool | None:
     """Turn the state of a tariff entity or topic into "off-peak now" (True), "not now" (False) or unknown (None).
 
-    ``off_peak_values``: the states that mean off-peak (case-insensitive, exact). Without it a default list is used and
-    any text containing "creuse" also counts (for example "HEURES CREUSES"). Unknown or unavailable gives None, which the
-    engine treats as "not off-peak" (it never forces a load on an unknown signal).
+    ``off_peak_values``: the states that mean off-peak (case-insensitive, exact; a trailing ``*`` matches any ending, so
+    ``HC*`` covers ``HC``, ``HC..`` and ``HCHP``). Without it a default list is used and any text containing "creuse" also
+    counts (for example "HEURES CREUSES"). Unknown or unavailable gives None, which the engine treats as "not off-peak"
+    (it never forces a load on an unknown signal).
     """
     word = str(text).strip().strip('"').lower()
     if word in UNKNOWN_WORDS:
         return None
     if off_peak_values:
-        return word in {str(v).strip().lower() for v in off_peak_values}
+        wanted = [str(v).strip().lower() for v in off_peak_values if str(v).strip()]
+        return any(word.startswith(v[:-1]) if v.endswith("*") else word == v for v in wanted)
     return word in DEFAULT_OFFPEAK_WORDS or "creuse" in word
 
 

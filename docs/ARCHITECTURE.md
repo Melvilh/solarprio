@@ -30,6 +30,9 @@ container. So the engine knows nothing about Home Assistant.
 - `DeviceReading` (`Engine.set_reading`): optional measured power, state of charge and plug state per device.
   Safety limits (SoC reached, car unplugged) override the min on/off timers. `routed_w` uses measured power when known,
   and a device measured below its command (after `settle_s`) frees the difference for lower priorities.
+- Regulation: `Device.temp_*`, `surplus_only`, `hold_s`, `ramp_up_w`, `deadband_w`; `Engine(subscription_va, emergency_import_w)`
+  and `step(..., house_w, import_w)`. The engine decides tank limits (hysteresis), the sanitary minimum, the dynamic cap of
+  what is fed from the grid, smooth ramps and the emergency cut; see [REGULATION.md](REGULATION.md).
 - Off-peak top-up (`Device.offpeak`): `Engine.step(..., local)` picks the devices inside their window (one, or several up to
   `offpeak_budget_w`), feeds it at full
   power (taken out of the shared surplus), and marks it done for the daily period when its measured power stays low

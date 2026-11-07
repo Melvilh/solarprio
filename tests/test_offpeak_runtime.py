@@ -127,13 +127,13 @@ def test_an_offpeak_topic_makes_the_device_follow_the_signal():
     assert dev.offpeak_signal and dev.has_schedule and not dev.windows
 
 
-def test_a_signal_needs_a_measured_topic_and_cannot_be_mixed_with_windows():
+def test_a_signal_needs_a_measured_topic_and_can_be_limited_to_windows():
     raw = minimal()
     raw["device"][0]["readings"] = {"offpeak_topic": "linky/tariff"}
     with pytest.raises(ConfigError, match="measured_topic"):
         parse_config(raw)
-    with pytest.raises(ConfigError, match="either"):
-        parse_config(_signal_raw(offpeak=["22:30-06:30"]))
+    both = parse_config(_signal_raw(offpeak=["22:30-06:30"])).devices[0]  # a signal AND windows: both must say off-peak
+    assert both.offpeak_signal and both.windows
 
 
 @pytest.mark.parametrize("payload, values, field, expected", [

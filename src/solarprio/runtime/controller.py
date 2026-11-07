@@ -41,7 +41,8 @@ class Controller:
         except MeasurementUnavailable as e:
             return await self._on_measurement_lost(e, now)
 
-        commands = self._engine.step(available, now, self._local_clock())
+        house = getattr(self._source, "read_house_w", lambda: None)()
+        commands = self._engine.step(available, now, self._local_clock(), house, getattr(self._source, "last_import_w", None))
         log.debug("available=%.0fW commands=%s", available, commands)
         await self._send(commands, now)
         return commands

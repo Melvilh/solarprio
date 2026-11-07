@@ -16,7 +16,9 @@ from homeassistant.util import dt as dt_util
 from .const import (
     CONF_CONSUMPTION_ENTITY,
     CONF_DEVICES,
+    CONF_EMERGENCY,
     CONF_EXPORT_ENTITY,
+    CONF_HOUSE_ENTITY,
     CONF_INTERVAL,
     CONF_INVERT,
     CONF_MARGIN,
@@ -25,6 +27,7 @@ from .const import (
     CONF_ON_STALE,
     CONF_PRODUCTION_ENTITY,
     CONF_STALE_AFTER,
+    CONF_SUBSCRIPTION,
     DEFAULT_INTERVAL,
     DEFAULT_STALE_AFTER,
     DOMAIN,
@@ -50,6 +53,7 @@ DEVICE_FIELDS = (
     "soc_max", "soc_resume_margin", "settle_s",
     "voltage_v", "phases", "min_current_a", "max_current_a", "current_step_a",
     "offpeak", "reset_at", "done_below_w", "done_after_s", "offpeak_signal",
+    "temp_max_solar", "temp_max_offpeak", "temp_hysteresis", "temp_min", "surplus_only", "hold_s", "ramp_up_w", "deadband_w",
 )
 
 
@@ -86,6 +90,8 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.engine = Engine(
             [build_device(d) for d in self.device_cfgs.values()],
             offpeak_budget_w=float(self._conf.get(CONF_OFFPEAK_BUDGET, 0) or 0),
+            subscription_va=float(self._conf.get(CONF_SUBSCRIPTION) or 0) or None,
+            emergency_import_w=float(self._conf.get(CONF_EMERGENCY) or 0) or None,
         )
         self.enabled = True
         self._sent: dict[str, tuple[float, float]] = {}  # device -> (power_w, monotonic time it was sent)
@@ -97,7 +103,8 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             raise MeasurementUnavailable(f"{entity_id} is unavailable")
         age = (dt_util.utcnow() - state.last_reported).total_seconds()
-        if age > self._conf.get(CONF_STALE_AFTER, DEFAULT_STALE_AFTER):
+        limit = self._conf.get(CONF_STALE_AFTER, DEFAULT_STALE_AFTER)
+        if limit and age > limit:  # 0 = never judge by age: a sensor that only reports changes can look old while it is fine
             raise MeasurementUnavailable(f"{entity_id} has not reported for {age:.0f}s")
         try:
             value = float(state.state)
@@ -115,13 +122,21 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if state is None or state.state in (STATE_UNAVAILABLE, STATE_UNKNOWN):
             return None
         age = (dt_util.utcnow() - state.last_reported).total_seconds()
-        if age > self._conf.get(CONF_STALE_AFTER, DEFAULT_STALE_AFTER):
+        limit = self._conf.get(CONF_STALE_AFTER, DEFAULT_STALE_AFTER)
+        if limit and age > limit:
             return None
         return state
 
     def _read_reading(self, cfg: dict[str, Any]) -> DeviceReading | None:
         """Measured power, state of charge and plug state of a device, from its optional entities."""
-        measured = soc = connected = offpeak = None
+        measured = soc = connected = offpeak = temperature = None
+        if state := self._read_optional(cfg.get("temp_entity")):
+            try:
+                temperature = float(state.state)
+                if state.attributes.get("unit_of_measurement") == "°F":
+                    temperature = (temperature - 32) / 1.8
+            except ValueError:
+                pass
         if cfg.get("offpeak_entity"):
             state = self.hass.states.get(cfg["offpeak_entity"])
             if state is not None:
@@ -142,29 +157,40 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 connected = True
             elif state.state in ("off", "false", "False", "disconnected", "unplugged"):
                 connected = False
-        if measured is None and soc is None and connected is None and offpeak is None:
+        if measured is None and soc is None and connected is None and offpeak is None and temperature is None:
             return None
-        return DeviceReading(measured_w=measured, soc=soc, connected=connected, offpeak=offpeak)
+        return DeviceReading(measured_w=measured, soc=soc, connected=connected, offpeak=offpeak, temperature=temperature)
 
     def _update_readings(self) -> None:
         for device_id, cfg in self.device_cfgs.items():
             self.engine.set_reading(device_id, self._read_reading(cfg))
 
-    def _available_w(self) -> float:
-        """Surplus the engine may hand out, minus the export margin kept on purpose."""
+    def _available_w(self) -> tuple[float, float]:
+        """The surplus the engine may hand out (minus the export margin kept on purpose) and the grid import now."""
         routed = self.engine.routed_w
         if self._conf[CONF_MODE] == MODE_EXPORT:
             export = self._read_watts(self._conf[CONF_EXPORT_ENTITY])
             if self._conf.get(CONF_INVERT):
                 export = -export
             available = available_from_export(export, routed)
+            grid_import = -export
         else:
-            available = available_from_production(
-                self._read_watts(self._conf[CONF_PRODUCTION_ENTITY]),
-                self._read_watts(self._conf[CONF_CONSUMPTION_ENTITY]),
-                routed,
-            )
-        return available - float(self._conf.get(CONF_MARGIN, 0) or 0)
+            production = self._read_watts(self._conf[CONF_PRODUCTION_ENTITY])
+            consumption = self._read_watts(self._conf[CONF_CONSUMPTION_ENTITY])
+            available = available_from_production(production, consumption, routed)
+            grid_import = consumption - production
+        return available - float(self._conf.get(CONF_MARGIN, 0) or 0), grid_import
+
+    def _house_w(self) -> float | None:
+        """What the whole house draws, for the subscription cap. Unknown is not a lost measurement: the engine then simply
+        feeds nothing from the grid."""
+        entity = self._conf.get(CONF_HOUSE_ENTITY)
+        if not entity:
+            return None
+        try:
+            return self._read_watts(entity)
+        except MeasurementUnavailable:
+            return None
 
     # ---- control loop ------------------------------------------------
 
@@ -174,7 +200,7 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not self.enabled:
             return self._result("disabled", None)
         try:
-            available = self._available_w()
+            available, grid_import = self._available_w()
         except MeasurementUnavailable as err:
             if self._conf.get(CONF_ON_STALE) == ON_STALE_HOLD:
                 _LOGGER.warning("Measurement lost (%s): holding current state", err)
@@ -184,7 +210,7 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self._apply(commands, now)
             return self._result("measurement_lost_off", None, str(err))
 
-        commands = self.engine.step(available, now, dt_util.now())
+        commands = self.engine.step(available, now, dt_util.now(), self._house_w(), grid_import)
         await self._apply(commands, now)
         return self._result("routing", available)
 
@@ -306,6 +332,8 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "measured_w": reading.measured_w if reading else None,
             "current_a": None,
             "offpeak": self.engine.offpeak_status(cfg["id"], dt_util.now()),
+            "mode": self.engine.mode(cfg["id"]),
+            "temperature_c": reading.temperature if reading else None,
         }
         if cfg["kind"] == DeviceKind.EV_CHARGER.value:
             out["current_a"] = round(self.engine.device(cfg["id"]).current_for(cmd_w), 1)

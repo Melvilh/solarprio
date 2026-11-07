@@ -19,11 +19,18 @@
           "stale_after_s": "Mesure considérée perdue après",
           "on_stale": "Quand la mesure est perdue",
           "margin_w": "Marge d'injection à conserver",
-          "offpeak_budget_w": "Budget de puissance en heures creuses"
+          "offpeak_budget_w": "Budget de puissance en heures creuses",
+          "subscription_va": "Limite de puissance de la maison, votre abonnement (VA)",
+          "house_entity": "Capteur de puissance de la maison (ce que toute la maison tire)",
+          "emergency_import_w": "Coupure d'urgence au-delà de ce soutirage (W)"
         },
         "data_description": {
           "margin_w": "Watts volontairement non routés pour que le bruit de mesure et la latence ne deviennent pas du soutirage.",
-          "offpeak_budget_w": "Puissance totale que la chauffe en heures creuses peut alimenter à la fois. 0 = un appareil à la fois. Indiquez votre puissance souscrite moins le reste du site pour faire tourner plusieurs bornes ou chauffe-eau ensemble."
+          "offpeak_budget_w": "Puissance totale que la chauffe en heures creuses peut alimenter à la fois. 0 = un appareil à la fois. Indiquez votre puissance souscrite moins le reste du site pour faire tourner plusieurs bornes ou chauffe-eau ensemble.",
+          "subscription_va": "Le maximum que la maison peut tirer. Quand elle est renseignée, tout ce que solarprio alimente volontairement depuis le réseau (heures creuses, sanitaire) est limité à ce qui reste sous cette valeur après le reste de la maison, et rien n'est alimenté depuis le réseau si la puissance de la maison est inconnue. Laissez vide pour aucune limite. Demande le capteur de puissance de la maison ci-dessous.",
+          "house_entity": "Par exemple la puissance soutirée au réseau sur votre compteur. Nécessaire pour la limite ci-dessus.",
+          "emergency_import_w": "Si plus que cela est tiré du réseau (sans compter ce qui est alimenté volontairement depuis le réseau), tous les appareils qui tournent avec le soleil sont coupés d'un coup. Laissez vide pour la désactiver.",
+          "stale_after_s": "Secondes sans mise à jour après lesquelles la mesure est considérée comme perdue. 0 = ne jamais juger à l'âge, seulement à la disponibilité : à utiliser quand votre capteur ne republie pas une valeur qui ne change pas (le panneau affiche sinon « n'a pas rapporté depuis N s » pour un capteur en parfaite santé)."
         },
         "description": "Tableau de bord Énergie : capteur de puissance réseau {grid}, capteur de puissance solaire {solar} (« - » = aucun utilisable ; un nombre = autant de capteurs réseau, pré-rempli seulement s'il n'y en a qu'un). Le tableau compte la puissance tirée du réseau en positif : « Mon compteur indique le soutirage en positif » est donc pré-réglé quand son capteur réseau est utilisé."
       }
@@ -91,7 +98,16 @@
           "done_below_w": "Terminé quand la consommation tombe à (W, 0 = 5 % de la puissance)",
           "done_after_s": "Vérifier « terminé » seulement après une marche de",
           "offpeak_entity": "Entité du signal heures creuses (facultatif)",
-          "offpeak_values": "États qui signifient heures creuses (facultatif)"
+          "offpeak_values": "États qui signifient heures creuses (facultatif)",
+          "temp_entity": "Capteur de température de l'eau (facultatif)",
+          "temp_max_solar": "Arrêter de chauffer avec le soleil à (°C)",
+          "temp_max_offpeak": "Arrêter de chauffer en heures creuses à (°C)",
+          "temp_hysteresis": "Hystérésis de température (°C)",
+          "temp_min": "Minimum sanitaire (°C) : chauffe sur le réseau en dessous",
+          "surplus_only": "Surplus uniquement (jamais depuis le réseau)",
+          "hold_s": "Attente après un changement (s)",
+          "ramp_up_w": "Plus grande montée à la fois (W)",
+          "deadband_w": "Ignorer les variations inférieures à (W)"
         },
         "data_description": {
           "entity_id": "Tout-ou-rien et réglable : l'entité à commuter ou régler. Batterie : l'entité number de la consigne de charge. Borne : l'entité number du courant de charge en ampères. Tâche : un assistant (input_boolean) que vos propres scripts lisent ; solarprio ne commute jamais une alimentation pour une tâche. N'utilisez pas une charge tout-ou-rien pour un ordinateur, un serveur ou un NAS : couper leur courant peut faire perdre des données.",
@@ -102,13 +118,22 @@
           "connected_entity": "on = branché. Inconnu = considéré branché. Un véhicule débranché ne reçoit rien : le surplus va aux priorités suivantes.",
           "switch_entity": "Si renseigné, la borne est allumée/éteinte avec. Sinon elle est mise en pause en réglant 0 A (toutes les bornes ne l'acceptent pas).",
           "phases": "Nombre de phases fixe. La commutation automatique 1/3 phases n'est pas prise en charge.",
-          "offpeak": "Heure locale, 24 h, séparées par des virgules, par exemple 22:30-06:30, 12:30-14:30 (une plage peut passer minuit). À utiliser OU l'entité de signal ci-dessous. Dans ces plages l'appareil est alimenté à pleine puissance, quel que soit le soleil, jusqu'à ce qu'il ne consomme plus (un chauffe-eau dont le thermostat s'est ouvert est chaud) ; l'appareil suivant par ordre de priorité prend alors son tour. Demande un capteur de puissance mesurée.",
+          "offpeak": "Heure locale, 24 h, séparées par des virgules, par exemple 22:30-06:30, 12:30-14:30 (une plage peut passer minuit). Dans ces plages l'appareil est alimenté à pleine puissance, quel que soit le soleil, jusqu'à ce qu'il ne consomme plus ou que l'eau soit chaude ; l'appareil suivant par ordre de priorité prend alors son tour. Si vous renseignez aussi l'entité de signal ci-dessous, LES DEUX doivent indiquer heures creuses (par exemple seulement les heures de nuit du tarif).",
           "reset_at": "HH:MM. Un appareil trouvé terminé est de nouveau alimenté à partir de cette heure. Par défaut : la fin de la première plage, donc une fois par jour.",
           "done_below_w": "Puissance mesurée en dessous de laquelle l'appareil est considéré comme terminé.",
           "done_after_s": "Secondes de marche avant qu'une faible consommation signifie terminé (capteurs lents, appel de courant).",
-          "offpeak_entity": "À la place des plages : une entité qui indique quand le tarif est en heures creuses, par exemple la période tarifaire de votre Linky (un capteur), un capteur binaire ou un booléen. La chauffe tourne tant qu'elle indique heures creuses, et chaque nouvelle période d'heures creuses réessaie l'appareil. Inconnu ou indisponible ne démarre jamais rien.",
-          "offpeak_values": "États séparés par des virgules qui signifient heures creuses, par exemple HC.. ou 2. Vérifiez l'état réel de votre entité dans Outils de développement > États. Vide : on, true, HC, HC.., et tout texte contenant creuse (sans tenir compte des majuscules).",
-          "power_w": "Puissance maximale de la charge. Pour une tâche : une estimation de ce que consommeront les tâches autorisées (sert à décider s'il y a assez de surplus)."
+          "offpeak_entity": "Une entité qui indique quand le tarif est en heures creuses, par exemple la période tarifaire de votre Linky (un capteur dont l'état ressemble à HC.. ou HP..), un capteur binaire ou un booléen. PAS un index d'énergie : c'est un nombre qui ne fait que croître. La chauffe tourne tant qu'elle indique heures creuses, et chaque nouvelle période d'heures creuses réessaie l'appareil. Inconnu ou indisponible ne démarre jamais rien.",
+          "offpeak_values": "États séparés par des virgules qui signifient heures creuses, par exemple HC.. ou HC* (l'étoile remplace tout ce qui suit HC). Vérifiez l'état réel de votre entité dans Outils de développement > États. Vide : on, true, HC, HC.., et tout texte contenant creuse (sans tenir compte des majuscules).",
+          "power_w": "Puissance maximale de la charge. Pour une tâche : une estimation de ce que consommeront les tâches autorisées (sert à décider s'il y a assez de surplus).",
+          "temp_entity": "La température du ballon ou de l'eau chauffée. Elle est nécessaire pour les limites de température ci-dessous : sans elle solarprio ne sait pas si l'eau est chaude, donc un appareil qui a des limites de température ne reçoit aucune puissance tant que la mesure manque.",
+          "temp_max_solar": "Avec le soleil, la chauffe s'arrête au-dessus de cette température et reprend quand l'eau a refroidi de l'hystérésis. Laissez vide pour aucune limite.",
+          "temp_max_offpeak": "Idem pour la chauffe d'appoint en heures creuses, généralement un peu plus bas. Laissez vide pour reprendre la valeur ci-dessus.",
+          "temp_hysteresis": "De combien l'eau doit refroidir sous une limite avant que la chauffe reprenne. 3 °C est un bon début.",
+          "temp_min": "Si l'eau passe sous cette température, elle est chauffée sur le réseau, quel que soit le soleil ou l'heure, jusqu'à repasser au-dessus plus l'hystérésis (la sécurité contre les bactéries se situe en général entre 40 et 60 °C : voyez ce que conseille votre installateur). Laissez vide pour ne jamais chauffer sur le réseau pour cette raison. Demande un capteur de température et, par sécurité sur un petit abonnement, le capteur de puissance de la maison des réglages du site.",
+          "surplus_only": "Interdit tout ce qui alimente cet appareil depuis le réseau : ni chauffe d'appoint en heures creuses, ni chauffe sanitaire. Seul le surplus solaire est utilisé.",
+          "hold_s": "Après un changement de puissance de cet appareil, attendre ce délai avant de la remonter (la moitié avant de la baisser). La mesure du réseau met quelques secondes à montrer l'effet d'un changement ; sans attente, la régulation dépasse et soutire sur le réseau. 8 secondes conviennent à un gradateur avec un Linky.",
+          "ramp_up_w": "La puissance ne monte jamais de plus que cela d'un coup : un gros surplus est suivi par paliers. 200 W est un bon début pour un gradateur. Laissez vide pour aucune limite.",
+          "deadband_w": "Ne pas changer la puissance pour quelques watts : cela use le matériel et fait osciller la mesure. Passer à zéro ou en repartir n'est jamais ignoré."
         }
       },
       "import_energy": {
@@ -139,6 +164,12 @@
         "battery": "Batterie",
         "ev_charger": "Borne de recharge",
         "task": "Tâche informatique (signal « go », jamais un interrupteur d'alimentation)"
+      }
+    },
+    "device_preset": {
+      "options": {
+        "water_heater_dimmer": "Chauffe-eau sur routeur solaire (gradateur, puissance réglable)",
+        "water_heater_relay": "Chauffe-eau sur relais ou contacteur (tout-ou-rien)"
       }
     }
   }

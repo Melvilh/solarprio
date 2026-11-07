@@ -28,14 +28,34 @@ with sync_playwright() as p:
     page.locator("solarprio-panel #btn-add").click()
     dialog = page.locator("solarprio-panel .dialog")
     dialog.wait_for()
-    kinds = page.locator("solarprio-panel .dialog button.kind").all_inner_texts()
+    presets = page.locator("solarprio-panel .dialog button.kind.primary").all_inner_texts()
+    print("ready-made models:", presets)
+    assert len(presets) == 2 and any("Chauffe-eau sur routeur solaire" in p for p in presets), presets
+    kinds = page.locator("solarprio-panel .dialog button.kind:not(.primary)").all_inner_texts()
     print("types offered:", kinds)
     assert len(kinds) == 5 and any("Batterie" in k for k in kinds) and any("Tâche informatique" in k for k in kinds), kinds
     assert not any("serveur" in k.lower() for k in kinds), kinds  # no suggestion to cut a server's power
     page.screenshot(path="panel_add_type.png")
-    page.locator("solarprio-panel .dialog button.kind").first.click()
+
+    # a ready-made model fills the water heater values; the advanced settings are folded away
+    page.locator("solarprio-panel .dialog button.kind.primary").first.click()
+    page.locator("solarprio-panel #f-temp_max_solar").wait_for()
+    assert page.input_value("solarprio-panel #f-temp_max_solar") == "65" and page.input_value("solarprio-panel #f-temp_max_offpeak") == "60"
+    assert page.input_value("solarprio-panel #f-hold_s") == "8" and page.input_value("solarprio-panel #f-ramp_up_w") == "200"
+    advanced_open = page.locator("solarprio-panel details.advanced").evaluate("el => el.open")
+    assert advanced_open is False, "the advanced settings start folded"
+    assert not page.locator("solarprio-panel #f-hold_s").is_visible()
+    page.locator("solarprio-panel details.advanced summary").click()
+    assert page.locator("solarprio-panel #f-hold_s").is_visible()
+    assert "Température de l'eau" in dialog.inner_text() or "température de l'eau" in dialog.inner_text().lower()
+    page.screenshot(path="panel_add_preset.png", full_page=True)
+    page.keyboard.press("Escape")
+
+    page.locator("solarprio-panel #btn-add").click()
+    page.locator("solarprio-panel .dialog button.kind:not(.primary)").first.click()
     page.locator("solarprio-panel #f-name").wait_for()
 
+    page.locator("solarprio-panel details.advanced summary").click()  # the off-peak details are under "advanced settings"
     text = dialog.inner_text()
     assert "Entité du signal heures creuses" in text and "États qui signifient heures creuses" in text, text
     assert "offpeak_entity" not in text and "offpeak_values" not in text, "raw field names must not be shown"
@@ -92,10 +112,11 @@ with sync_playwright() as p:
 
     # ---- site settings: invalid value refused, valid one saved and applied
     page.locator("solarprio-panel #btn-settings").click()
+    page.locator("solarprio-panel details.advanced summary").click()  # the delay is under "advanced settings"
     page.locator("solarprio-panel #f-stale_after_s").wait_for()
     assert "Réglages de la mesure" in dialog.inner_text() and "stale_after_s" not in dialog.inner_text()
     assert page.input_value("solarprio-panel #f-stale_after_s") == "3600"
-    page.fill("solarprio-panel #f-stale_after_s", "1")
+    page.fill("solarprio-panel #f-stale_after_s", "5000")  # above the 3600 s maximum
     page.locator("solarprio-panel .dialog button[type=submit]").click()
     wait(lambda: page.locator("solarprio-panel .field.invalid").count() == 1, 10, "the offending field is marked")
     page.fill("solarprio-panel #f-stale_after_s", "1800")

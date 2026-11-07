@@ -97,18 +97,15 @@ async def test_a_lost_grid_measurement_still_switches_off_during_off_peak(hass: 
         assert not sim.on["ecs"]
 
 
-async def test_form_takes_a_signal_entity_but_not_together_with_windows(hass: HomeAssistant):
+async def test_form_takes_a_signal_entity_alone_or_together_with_windows(hass: HomeAssistant):
     async_mock_service(hass, "homeassistant", "turn_off")
     hass.states.async_set(GRID, "0", W)
     entry = await setup(hass, devices=[])
     form = {"name": "Water heater", "entity_id": "switch.heater", "priority": 1, "power_w": 2000, "min_on_s": 0, "min_off_s": 0,
             "start_margin_w": 0, "stay_tolerance_w": 0}
 
-    bad = await _add_device(hass, entry, "on_off", {**form, "offpeak_entity": TARIFF})  # no measured power sensor
+    bad = await _add_device(hass, entry, "on_off", {**form, "offpeak_entity": TARIFF})  # no measured power sensor, no temperature
     assert bad["type"] is FlowResultType.FORM and bad["errors"] == {"base": "invalid_device"}
-    bad = await hass.config_entries.options.async_configure(
-        bad["flow_id"], {**form, "offpeak_entity": TARIFF, "offpeak": "22:30-06:30", "measured_entity": "sensor.ecs_power"})
-    assert bad["errors"] == {"base": "invalid_device"}  # windows AND signal
 
     good = await hass.config_entries.options.async_configure(
         bad["flow_id"], {**form, "offpeak_entity": TARIFF, "offpeak_values": "HC.., 2", "measured_entity": "sensor.ecs_power"})
@@ -117,3 +114,10 @@ async def test_form_takes_a_signal_entity_but_not_together_with_windows(hass: Ho
     assert saved["offpeak_entity"] == TARIFF and saved["offpeak_values"] == "HC.., 2"
     await hass.async_block_till_done()
     assert coordinator(hass, entry).engine.device("water_heater").offpeak_signal is True
+
+    both = await _add_device(hass, entry, "on_off", {**form, "name": "Both", "offpeak_entity": TARIFF, "offpeak": "22:30-06:30",
+                                                      "measured_entity": "sensor.ecs_power"})
+    assert both["type"] is FlowResultType.CREATE_ENTRY  # the tariff signal, but only during the night windows
+    await hass.async_block_till_done()
+    device = coordinator(hass, entry).engine.device("both")
+    assert device.offpeak_signal and device.windows

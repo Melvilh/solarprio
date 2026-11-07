@@ -1,0 +1,297 @@
+# ESPHome: a solar router that is ONLY an actuator. solarprio decides, this ESP executes.
+#
+# What it does
+#   - Receives a power order in watts from solarprio (the number "Consigne externe (W)") and applies it to a phase-angle
+#     dimmer (triac). Nothing else decides how much to heat: no grid measurement, no tariff, no schedule here.
+#   - Falls back to 0 W by itself when solarprio stops talking (watchdog), when Home Assistant disconnects, at boot,
+#     and for the three hardware safeties below. These are protections of the equipment, not regulation.
+#   - Reports what solarprio needs: the water temperature and the real power drawn (P = R x I squared, from a current clamp).
+#
+# What it deliberately does NOT do any more: follow the Linky, handle off-peak hours, keep the water above a minimum
+# temperature, cap the subscription. All of that is in solarprio, for every heater and variable load of the house at once.
+#
+# Check before use: this file passed `esphome config`; it has NOT been compiled or run on hardware by its author.
+# Compile it yourself, test with the heater's own mechanical safety thermostat in place, and fill the substitutions.
+
+substitutions:
+  device_name: solar-router
+  friendly_name: "Chauffe eau"
+  pmax_w: "2400"                    # the heater power in watts
+  gate_pin: GPIO33                  # triac gate
+  zero_cross_pin: GPIO34            # mains zero-cross detector
+  clamp_pin: GPIO32                 # current clamp (ADC)
+  fan_pin: GPIO26                   # triac fan (optional)
+  onewire_pin: GPIO13               # DS18B20 bus
+  triac_probe_address: "0x1111111111111111"   # DS18B20 on the triac heat sink: read it from the ESPHome log
+  tank_probe_address: "0x2222222222222222"    # DS18B20 on the tank
+  voltage_entity: sensor.mains_voltage        # optional: a Home Assistant sensor with the mains voltage (V)
+
+esphome:
+  name: ${device_name}
+  friendly_name: ${friendly_name}
+  on_boot:
+    priority: -100                  # always start with the triac closed, whatever was saved
+    then:
+      - light.turn_off: gradateur
+      - lambda: |-
+          id(sortie_w) = 0.0f;
+          id(ordre_ms) = 0;
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+
+api:
+  encryption:
+    key: !secret api_key
+  on_client_disconnected:           # Home Assistant gone: nobody can send orders any more
+    then:
+      - light.turn_off: gradateur
+      - lambda: |-
+          id(sortie_w) = 0.0f;
+          id(ordre_ms) = 0;         # the last order is no longer valid
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "${friendly_name} Fallback"
+    password: !secret ap_password
+
+captive_portal:
+
+time:
+  - platform: homeassistant        # only for the daily energy counter below
+
+one_wire:
+  - platform: gpio
+    pin: ${onewire_pin}
+    id: bus1
+
+globals:
+  - id: pmax
+    type: float
+    restore_value: yes
+    initial_value: ${pmax_w}.0f
+  - id: sortie_w                    # the power really applied (never restored: closed at boot)
+    type: float
+    restore_value: no
+    initial_value: "0.0"
+  - id: ordre_w                     # the last order from solarprio
+    type: float
+    restore_value: no
+    initial_value: "0.0"
+  - id: ordre_ms                    # when it arrived; 0 = no valid order
+    type: uint32_t
+    restore_value: no
+    initial_value: "0"
+
+output:
+  - platform: ac_dimmer
+    id: dimmer
+    gate_pin: ${gate_pin}
+    zero_cross_pin:
+      number: ${zero_cross_pin}
+      mode:
+        input: true
+      inverted: true
+    min_power: 0.0
+
+light:
+  - platform: monochromatic
+    id: gradateur
+    name: "Gradateur"
+    output: dimmer
+    default_transition_length: 0s
+    restore_mode: ALWAYS_OFF
+
+switch:
+  - platform: gpio
+    pin:
+      number: ${fan_pin}
+      inverted: true
+    name: "Ventilateur"
+    id: ventilateur
+
+number:
+  # The order from solarprio. Every write counts as an order (even the same value), which is how solarprio's
+  # periodic resend keeps the watchdog quiet. It is never restored: after a reboot there is no order.
+  - platform: template
+    name: "Consigne externe (W)"
+    id: consigne_externe
+    optimistic: true
+    restore_value: false
+    min_value: 0
+    max_value: ${pmax_w}
+    step: 1
+    unit_of_measurement: W
+    set_action:
+      - lambda: |-
+          id(ordre_w) = x;
+          id(ordre_ms) = millis() | 1;   // never 0: 0 means "no order"
+  # No order within this time: 0 W. solarprio resends every 30 seconds, so keep this at least twice that.
+  - platform: template
+    name: "Délai sans ordre (s)"
+    id: delai_ordre
+    optimistic: true
+    restore_value: true
+    initial_value: 120
+    min_value: 45
+    max_value: 600
+    step: 5
+    unit_of_measurement: s
+  # Hardware safety, independent of solarprio: above this water temperature the triac is closed.
+  - platform: template
+    name: "Température de sécurité (°C)"
+    id: tmax_securite
+    optimistic: true
+    restore_value: true
+    initial_value: 75
+    min_value: 50
+    max_value: 85
+    step: 1
+    unit_of_measurement: "°C"
+
+sensor:
+  - platform: dallas_temp
+    name: "Température triac"
+    id: temp_triac
+    one_wire_id: bus1
+    address: ${triac_probe_address}
+    resolution: 12
+    update_interval: 30s
+    on_value:
+      then:
+        - if:
+            condition:
+              lambda: 'return x > 40.0;'
+            then:
+              - switch.turn_on: ventilateur
+        - if:
+            condition:
+              lambda: 'return x < 35.0;'
+            then:
+              - switch.turn_off: ventilateur
+
+  - platform: dallas_temp
+    name: "Température Chauffe-eau"
+    id: temp_ce
+    one_wire_id: bus1
+    address: ${tank_probe_address}
+    resolution: 12
+    update_interval: 30s
+    filters:
+      - lambda: 'return (x > 84.5 && x < 85.5) ? NAN : x;'   # 85 °C is the DS18B20 power-on error value
+
+  - platform: adc
+    pin: ${clamp_pin}
+    attenuation: 12db
+    id: adc_sensor
+
+  - platform: ct_clamp
+    sensor: adc_sensor
+    id: courant
+    name: "Courant chauffe eau"
+    update_interval: 2s
+    sample_duration:
+      milliseconds: 500
+    filters:
+      - calibrate_linear:           # calibrate with your own clamp and a known load
+          - 0.076 -> 0
+          - 1.11 -> 5.22
+      - clamp:
+          min_value: 0
+      - lambda: 'return (x < 0.15) ? 0.0f : x;'              # below about 0.15 A it is measurement noise
+
+  - platform: homeassistant
+    id: tension
+    entity_id: ${voltage_entity}
+
+  # Real power: P = R x I squared (a phase-angle dimmer makes U x I wrong). R comes from the heater power and the mains voltage.
+  - platform: template
+    name: "Puissance chauffe eau"
+    id: puissance
+    state_class: measurement
+    device_class: power
+    unit_of_measurement: W
+    accuracy_decimals: 1
+    update_interval: 2s
+    lambda: |-
+      if (!id(courant)->has_state()) return NAN;
+      float u = 230.0f;
+      if (id(tension)->has_state()) {
+        float ut = id(tension)->state;
+        if (ut > 180.0f && ut < 270.0f) u = ut;
+      }
+      if (id(sortie_w) < 1.0f) return 0.0f;                  // nothing ordered: nothing drawn (no phantom reading)
+      float r = (u * u) / id(pmax);
+      float i = id(courant)->state;
+      return max(0.0f, r * i * i);
+
+  - platform: total_daily_energy
+    name: "Énergie chauffe eau"
+    power_id: puissance
+    unit_of_measurement: Wh
+    state_class: total_increasing
+    device_class: energy
+    accuracy_decimals: 3
+
+  - platform: template
+    name: "Puissance appliquée (W)"
+    unit_of_measurement: W
+    accuracy_decimals: 0
+    update_interval: 5s
+    lambda: 'return id(sortie_w);'
+
+text_sensor:
+  - platform: template
+    name: "Raison"
+    id: raison
+    icon: "mdi:information-outline"
+
+button:
+  - platform: restart
+    name: "Redémarrage ESP"
+
+interval:
+  - interval: 1s
+    then:
+      - lambda: |-
+          const uint32_t now = millis();
+          float p = 0.0f;
+          const char* why = "solarprio";
+          const bool triac_ok = id(temp_triac)->has_state() && !std::isnan(id(temp_triac)->state) && id(temp_triac)->state < 55.0f;
+          const bool probe_ok = id(temp_ce)->has_state() && !std::isnan(id(temp_ce)->state);
+          const uint32_t timeout_ms = (uint32_t)(id(delai_ordre)->state * 1000.0f);
+
+          if (!triac_ok) {
+            why = "triac trop chaud ou sonde absente";
+          } else if (!probe_ok) {
+            why = "sonde du ballon absente";
+          } else if (id(temp_ce)->state > id(tmax_securite)->state) {
+            why = "température de sécurité atteinte";
+          } else if (id(ordre_ms) == 0 || (uint32_t)(now - id(ordre_ms)) > timeout_ms) {
+            why = "aucun ordre récent de solarprio";
+          } else {
+            p = id(ordre_w);
+            if (std::isnan(p) || p < 0.0f) p = 0.0f;
+            if (p > id(pmax)) p = id(pmax);
+          }
+
+          if (fabsf(p - id(sortie_w)) > 1.0f || (p < 1.0f && id(sortie_w) >= 1.0f)) {
+            id(sortie_w) = p;
+            if (p < 1.0f) {
+              id(gradateur).turn_off().perform();
+            } else {
+              auto call = id(gradateur).turn_on();
+              call.set_brightness(p / id(pmax));
+              call.perform();
+            }
+          }
+          if (id(raison)->state != std::string(why)) id(raison)->publish_state(why);

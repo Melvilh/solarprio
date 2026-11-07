@@ -13,10 +13,10 @@ from homeassistant.core import HomeAssistant, callback
 from .const import CONF_DEVICES, DOMAIN, PANEL_STATIC_URL, PANEL_URL_PATH
 from .coordinator import SolarPrioCoordinator
 from .core import DeviceKind
-from .forms import Field, clean_device, clean_site, device_fields, merge_device, site_fields
+from .forms import PRESETS, Field, clean_device, clean_site, device_fields, merge_device, site_fields
 
 PANEL_JS = Path(__file__).parent / "frontend" / "panel.js"
-VERSION = "0.1.2"
+VERSION = "0.2.0"
 
 
 async def async_setup_panel_api(hass: HomeAssistant) -> None:
@@ -150,7 +150,7 @@ _KINDS = [k.value for k in DeviceKind]
 
 @websocket_api.websocket_command(
     {vol.Required("type"): "solarprio/device_form", vol.Required("kind"): vol.In(_KINDS), vol.Optional("device_id"): str,
-     vol.Optional("language", default="en"): str}
+     vol.Optional("preset"): vol.In(list(PRESETS)), vol.Optional("language", default="en"): str}
 )
 @websocket_api.require_admin
 @websocket_api.async_response
@@ -172,7 +172,28 @@ async def ws_device_form(hass: HomeAssistant, connection: websocket_api.ActiveCo
         translations, f"{_DEVICE_PREFIX}.data", f"{_DEVICE_PREFIX}.data_description",
     )
     kinds = {k: translations.get(f"component.{DOMAIN}.selector.device_kind.options.{k}") or k for k in _KINDS}
-    connection.send_result(msg["id"], {"fields": fields, "values": values, "kinds": kinds})
+    if msg.get("preset") and not values:  # a new device that starts from a ready-made set of values
+        values = dict(PRESETS[msg["preset"]]["values"])
+    presets = [
+        {"id": p, "kind": spec["kind"], "label": translations.get(f"component.{DOMAIN}.selector.device_preset.options.{p}") or p}
+        for p, spec in PRESETS.items()
+    ]
+    connection.send_result(msg["id"], {"fields": fields, "values": values, "kinds": kinds, "presets": presets})
+
+
+def _warnings(hass: HomeAssistant, device: dict[str, Any]) -> list[str]:
+    """Mistakes that are valid but certainly wrong, spotted from the current state of the chosen entities."""
+    warnings = []
+    entity = device.get("offpeak_entity")
+    state = hass.states.get(entity) if entity else None
+    if state is not None and not device.get("offpeak_values"):
+        try:
+            float(state.state)
+        except ValueError:
+            pass
+        else:  # a number is never "HC": it is an index or a price, which only grows or moves
+            warnings.append("offpeak_numeric")
+    return warnings
 
 
 @websocket_api.websocket_command(
@@ -197,7 +218,7 @@ def ws_device_save(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
         return
     devices = merge_device(list(coordinator.device_cfgs.values()), device, editing)
     _save_devices(hass, coordinator, devices)
-    connection.send_result(msg["id"], {"saved": True})
+    connection.send_result(msg["id"], {"saved": True, "warnings": _warnings(hass, device)})
 
 
 @websocket_api.websocket_command({vol.Required("type"): "solarprio/device_remove", vol.Required("device_id"): str})

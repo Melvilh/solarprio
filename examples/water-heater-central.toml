@@ -1,0 +1,46 @@
+# Docker runtime: a water heater regulated centrally (temperatures, off-peak, sanitary minimum, subscription cap).
+# The router only executes the power order. Replace every <...> value. See docs/REGULATION.md.
+# Simulated only: not run on a real heater.
+
+[runtime]
+interval_s = 5
+stale_after_s = 30
+on_stale = "off"
+subscription_va = 5700          # house limit for everything fed from the grid on purpose (needs house_topic)
+emergency_import_w = 250        # grid import above which everything running on the sun is cut at once
+
+[mqtt]
+host = "<BROKER_IP>"
+
+[source]
+mode = "export"
+export_topic = "<GRID_POWER_TOPIC>"      # positive = export
+house_topic = "<HOUSE_POWER_TOPIC>"      # what the whole house draws
+margin_w = 60
+
+[[device]]
+id = "water_heater"
+name = "Water heater"
+priority = 1
+kind = "proportional"
+power_w = 2400
+min_power_w = 15
+min_on_s = 30
+min_off_s = 30
+temp_max_solar = 65
+temp_max_offpeak = 60
+temp_hysteresis = 3
+temp_min = 40                   # sanitary minimum: fed from the grid below it
+hold_s = 8
+ramp_up_w = 200
+deadband_w = 15
+# offpeak = ["22:30-06:30"]     # time windows; with readings.offpeak_topic both must say off-peak
+  [device.actuator]
+  type = "mqtt"
+  topic = "<ORDER_TOPIC>"       # the router receives the power in watts
+  scale = "watts"
+  [device.readings]
+  measured_topic = "<MEASURED_POWER_TOPIC>"
+  temperature_topic = "<TEMPERATURE_TOPIC>"
+  offpeak_topic = "<TARIFF_PERIOD_TOPIC>"
+  offpeak_values = ["HC*"]

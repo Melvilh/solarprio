@@ -40,6 +40,16 @@ def test_default_interpretation_of_a_tariff_state(text, expected):
     assert parse_offpeak_state(text) is expected
 
 
+@pytest.mark.parametrize("state, values, expected", [
+    ("HC..", ["HC*"], True), ("HC", ["HC*"], True), ("hchp", ["HC*"], True), ("HP..", ["HC*"], False),
+    ("35495096.0", ["HC*"], False),  # an energy index is not a tariff period
+    ("HP..", ["HC*", "2"], False), ("2", ["HC*", "2"], True), ("hc..", ["HC.."], True), ("HC", ["HC.."], False),
+    ("anything", ["*"], True),
+])
+def test_a_trailing_star_matches_any_ending(state, values, expected):
+    assert parse_offpeak_state(state, values) is expected
+
+
 def test_explicit_values_replace_the_defaults():
     assert parse_offpeak_state("2", ["2"]) is True
     assert parse_offpeak_state("1", ["2"]) is False
@@ -112,9 +122,7 @@ def test_reset_keeps_the_period_so_a_finished_device_stays_finished():
     assert sim.engine.state("ecs").signal_period == 1  # not counted as a new period
 
 
-def test_windows_and_a_signal_cannot_be_mixed_and_a_battery_cannot_follow_one():
-    with pytest.raises(ValueError, match="either"):
-        heater(offpeak=("22:30-06:30",))
+def test_a_battery_cannot_follow_a_signal():
     with pytest.raises(ValueError):
         Device(id="b", name="b", priority=1, kind=DeviceKind.BATTERY, power_w=3000, offpeak_signal=True)
 

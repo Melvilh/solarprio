@@ -24,7 +24,13 @@ async def run(config_path: str) -> list[str]:
     source = MqttPowerSource(bus, cfg.source, cfg.runtime.stale_after_s)
     actuator = DispatchActuator(bus, cfg.devices, cfg.actuators)
     readings = MqttReadings(bus, cfg.readings, cfg.runtime.stale_after_s)
-    controller = Controller(Engine(cfg.devices, offpeak_budget_w=cfg.runtime.offpeak_budget_w), source, actuator, cfg.runtime, readings=readings)
+    engine = Engine(
+        cfg.devices,
+        offpeak_budget_w=cfg.runtime.offpeak_budget_w,
+        subscription_va=cfg.runtime.subscription_va,
+        emergency_import_w=cfg.runtime.emergency_import_w,
+    )
+    controller = Controller(engine, source, actuator, cfg.runtime, readings=readings)
 
     stop = asyncio.Event()
     loop = asyncio.get_running_loop()

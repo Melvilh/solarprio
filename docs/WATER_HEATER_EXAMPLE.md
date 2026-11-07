@@ -1,71 +1,77 @@
-# Example: a water heater on an ESPHome triac router
+# Example: a water heater on a solar router, everything decided by solarprio
 
-Configuration for a water heater driven by an ESPHome router (phase-angle triac), whose grid measurement comes from a
-Linky read by another ESP. The router side is described in [ESPHOME_ROUTER.md](ESPHOME_ROUTER.md): the router must have the
-external-control pattern (switch, setpoint, timeout, watchdog) before this page makes sense.
+The router (an ESP32 with a triac dimmer) is only the **actuator**: it applies a power order in watts and reports the water
+temperature and the real power. solarprio decides, using the Linky and the tariff.
+Concepts: [REGULATION.md](REGULATION.md). The router side: [ESPHOME_ROUTER.md](ESPHOME_ROUTER.md).
 
-The entity ids below come from the ESPHome names of one real configuration, converted with Home Assistant's slug rules.
-**Check them in your own *Settings > Entities*** and replace them if they differ.
+The entity ids below are those of one real installation (area `garage_`). **Check yours** in *Settings > Entities*: they
+start with the area of the device and follow its names.
 
-| Role | Entity id used here |
+## 1. The router
+
+Flash [`examples/esphome/solar-router-actuator.yaml`](../examples/esphome/solar-router-actuator.yaml) (fill its
+substitutions: pins, probe addresses, power) after compiling it yourself. It creates the number **Consigne externe (W)**,
+which solarprio writes; a watchdog (120 s by default) brings it back to 0 W if the orders stop.
+
+## 2. The site settings (solarprio panel > Settings)
+
+| Setting | Value | Why |
+|---|---|---|
+| Grid power sensor | a sensor that **changes all the time**, positive when you import (tick *import is positive*) | for example the net power of the Energy dashboard |
+| Measurement lost after | `0` | the Linky injection sensor does not repeat a value that did not change |
+| Margin | 60 W | what the router used to keep |
+| Subscription limit | 5700 VA | 6 kVA minus 300 VA |
+| House power sensor | `sensor.garage_esp_teleinfo_linky_puissance` | the house as seen by the meter |
+| Emergency cut | 250 W | |
+
+Check the **sign** with the sun out and little consumption: the sensor must show an export.
+
+## 3. The device (panel > Add a device > *Water heater on a solar router*)
+
+| Field | Value |
 |---|---|
-| Linky, power withdrawn (VA) | `sensor.garage_esp_teleinfo_linky_puissance` |
-| Linky, power injected (VA) | `sensor.garage_esp_teleinfo_puissance_injectee` |
-| Router order (W) | `number.chauffe_eau_consigne_externe_w` |
-| Router real power | `sensor.chauffe_eau_puissance_chauffe_eau` |
-| External control switch | `switch.chauffe_eau_pilotage_externe_solarprio` |
+| Entity to control | `number.garage_chauffe_eau_consigne_externe_w` |
+| Value sent | watts |
+| Maximum power | 2400 |
+| Measured power | `sensor.garage_chauffe_eau_puissance_chauffe_eau` |
+| Temperature sensor | `sensor.garage_chauffe_eau_temperature_chauffe_eau` |
+| Stop with the sun / off-peak | 65 °C / 60 °C |
+| Off-peak entity | `sensor.garage_esp_teleinfo_linky_periode_tarifaire_brute` |
+| States meaning off-peak | `HC*` |
 
-## 1. One net grid sensor
+The model already sets the rest: hysteresis 3 °C, sanitary minimum 40 °C, wait 8 s, step 200 W, ignore 15 W, minimum run and
+rest 30 s. To use only the **night** off-peak hours (what the old *HC_midi* switch off did), also fill the windows
+(`22:30-06:30`, your own hours): both the tariff signal and the window must then say off-peak.
 
-The Linky gives two separate positive values (withdrawn, injected). solarprio wants one signed value, positive when
-exporting. In `configuration.yaml` (or *Helpers > Template*):
+**Mistake seen on a real installation**: `sensor.garage_esp_teleinfo_linky_heures_creuses` is an **energy index** (a number
+that only grows), not the tariff period. The period reads `HP..` or `HC..`. The panel warns when the chosen entity gives a
+number.
 
-```yaml
-template:
-  - sensor:
-      - name: "Reseau export net"
-        unit_of_measurement: "W"
-        device_class: power
-        state: >
-          {{ states('sensor.garage_esp_teleinfo_puissance_injectee') | float
-             - states('sensor.garage_esp_teleinfo_linky_puissance') | float }}
-        availability: >
-          {{ has_value('sensor.garage_esp_teleinfo_puissance_injectee')
-             and has_value('sensor.garage_esp_teleinfo_linky_puissance') }}
-```
+## 4. What replaces what
 
-If either Linky sensor is unavailable the net sensor becomes unavailable, which solarprio treats as a lost measurement
-(heater ordered to 0 W). The values are in VA and are used as W: close enough for a resistive heater, but it is an
-approximation.
+| In the old ESP file | Now |
+|---|---|
+| Solar routing from the Linky (feed-forward), margin | solarprio: surplus by priority, *margin* |
+| Wait for a fresh Linky reading after a change | *Wait after a change* (`hold_s`) |
+| Step up limit, dead zone | *Largest step up*, *Ignore changes under* |
+| Emergency cut on grid import | site *Emergency cut* |
+| `Température Max ... solaire / HC`, hysteresis | the two maximums and the hysteresis of the device |
+| `CE Trop Froid`, *Marche forcée* | *Sanitary minimum* (on as soon as the minimum is set) |
+| *Surplus uniquement* | *Surplus only* of the device |
+| `Mode HC`, `HC_midi` | the off-peak entity (and optional windows) |
+| Subscription ceiling (`Plafond puissance maison`) | site *Subscription limit* with the house power sensor |
+| `Mode Auto`, `Routage Solaire Actif` | the device switch and the routing switch of the panel |
+| Triac temperature, probe fault, API disconnect | **kept in the ESP** (equipment protections) |
+| Absolute maximum temperature | **kept in the ESP** (*Température de sécurité*, 75 °C) |
 
-## 2. solarprio
+## 5. Putting it into service
 
-- Source: mode **export**, entity `sensor.reseau_export_net`, invert off.
-- **Export margin**: 100 W to start with. It is left unrouted on purpose so measurement noise and the delay between
-  order and effect do not turn into grid import. Lower it only after watching your real meter.
-- Stale after: the net sensor is a template and the ESPHome integration only forwards value *changes*, so a steady value
-  can look old. Keep 60 s or more, and put `force_update: true` on the two Linky sensors in the garage ESP.
-- Device, type **adjustable**: entity `number.chauffe_eau_consigne_externe_w`, value in **watts**, maximum power = the
-  heater power (2400 W in the tests), minimum power 200 W, measured power entity
-  `sensor.chauffe_eau_puissance_chauffe_eau`.
+1. Keep the old ESP file (the sanitary copy of it stays yours). Flash the new one: the heater is at 0 W until solarprio sends.
+2. Add the site settings and the device. In the panel the row shows the temperature and the mode (solar, off-peak, sanitary,
+   hot, limited by the subscription, temperature unknown).
+3. **Watch the first day** with the heater's own mechanical thermostat in place. The tests use simulated sensors and heaters.
+4. Rolling back: flash the old file.
 
-Then switch `switch.chauffe_eau_pilotage_externe_solarprio` ON on the ESP. Keep the ESP's timeout at 120 s or more
-(solarprio repeats its order every 30 s).
+## Not verified
 
-## What the automated test checks
-
-`tests_ha/test_water_heater_example.py`, on a real Home Assistant with simulated sensors and a simulated router:
-
-- the template nets injected and withdrawn power, and goes unavailable (not zero) if one side is missing;
-- 800 W exported with a 100 W margin orders 700 W, and the order stays at 700 W once the heater really draws it
-  (no oscillation);
-- losing a Linky sensor orders 0 W;
-- over ten minutes of steady state, the 30 s repeats keep a router with a 120 s watchdog from falling to 0 W; with a
-  timeout shorter than the repeat interval it does fall (negative control).
-
-## What is not verified
-
-- Nothing was run on the real ESPs, triac or heater; the router is simulated by its contract.
-- The C++ of the ESPHome patch was not compiled.
-- Real latency (Linky refresh, Wi-Fi, Home Assistant, triac loop) and whether 100 W is the right margin.
-- Phase-angle control of the heater and its electronics: check with the heater's maker, keep its thermostat.
+Nothing here ran on a real router, heater or Linky. The new ESP file passed `esphome config`; its C++ was not compiled.

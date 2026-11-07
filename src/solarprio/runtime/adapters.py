@@ -51,9 +51,23 @@ class MqttPowerSource:
             if self._cfg.invert:
                 export = -export
             available = available_from_export(export, routed_w)
+            self.last_import_w = -export
         else:
-            available = available_from_production(self._read("production"), self._read("consumption"), routed_w)
+            production, consumption = self._read("production"), self._read("consumption")
+            available = available_from_production(production, consumption, routed_w)
+            self.last_import_w = consumption - production
         return available - self._cfg.margin_w
+
+    last_import_w: float | None = None  # grid import at the last reading, for the emergency cut
+
+    def read_house_w(self) -> float | None:
+        """What the whole house draws (for the subscription cap); unknown is not a lost measurement."""
+        if "house" not in self._cfg.topics:
+            return None
+        try:
+            return self._read("house")
+        except MeasurementUnavailable:
+            return None
 
 
 TRUTHY = {"on", "true", "1", "connected", "plugged", "plugged_in", "yes"}
@@ -66,7 +80,7 @@ class MqttReadings:
     def __init__(self, bus: MqttBus, configs: dict[str, ReadingsConfig], stale_after_s: float) -> None:
         self._bus, self._configs, self._stale_after_s = bus, configs, stale_after_s
         for cfg in configs.values():
-            for topic in (cfg.measured_topic, cfg.soc_topic, cfg.connected_topic, cfg.offpeak_topic):
+            for topic in (cfg.measured_topic, cfg.soc_topic, cfg.connected_topic, cfg.offpeak_topic, cfg.temperature_topic):
                 if topic:
                     bus.subscribe(topic)
 
@@ -81,7 +95,14 @@ class MqttReadings:
     def read_readings(self) -> dict[str, DeviceReading]:
         out: dict[str, DeviceReading] = {}
         for device_id, cfg in self._configs.items():
-            measured = soc = connected = offpeak = None
+            measured = soc = connected = offpeak = temperature = None
+            if (raw := self._fresh(cfg.temperature_topic)) is not None:
+                try:
+                    temperature = parse_number(raw, cfg.field)
+                    if cfg.temperature_unit == "F":
+                        temperature = (temperature - 32) / 1.8
+                except (ValueError, KeyError, TypeError):
+                    pass
             if (raw := self._fresh(cfg.offpeak_topic)) is not None:
                 text = raw.decode(errors="ignore")
                 if cfg.field:  # JSON payload such as {"value": 2}
@@ -110,8 +131,9 @@ class MqttReadings:
                 yes = {w.lower() for w in cfg.connected_values} if cfg.connected_values is not None else TRUTHY
                 no = {w.lower() for w in cfg.disconnected_values} if cfg.disconnected_values is not None else FALSY
                 connected = True if word in yes else False if word in no else None
-            if measured is not None or soc is not None or connected is not None or offpeak is not None:
-                out[device_id] = DeviceReading(measured_w=measured, soc=soc, connected=connected, offpeak=offpeak)
+            if any(v is not None for v in (measured, soc, connected, offpeak, temperature)):
+                out[device_id] = DeviceReading(measured_w=measured, soc=soc, connected=connected, offpeak=offpeak,
+                                               temperature=temperature)
         return out
 
 

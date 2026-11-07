@@ -75,7 +75,17 @@ class Device:
     reset_at: str | None = None  # "HH:MM" from which the device may be topped up again; default: end of the first window
     done_below_w: float | None = None  # measured power at or below which the device counts as finished; default 5 % of power_w
     done_after_s: float = 120.0  # how long it must have been on before a low measured power means "finished"
-    offpeak_signal: bool = False  # off-peak is told by an entity/topic (reading.offpeak) instead of the windows
+    offpeak_signal: bool = False  # off-peak is told by an entity/topic (reading.offpeak); with windows too: both must hold
+    # tank temperature (water heaters): limits, hysteresis and a sanitary minimum, read from ``reading.temperature``
+    temp_max_solar: float | None = None  # stop heating with the sun at this temperature (resume ``temp_hysteresis`` below)
+    temp_max_offpeak: float | None = None  # same for the off-peak top-up; default ``temp_max_solar``
+    temp_hysteresis: float = 3.0
+    temp_min: float | None = None  # sanitary minimum: below it the device is fed from the grid, whatever the sun
+    surplus_only: bool = False  # never feed this device from the grid: no off-peak top-up, no sanitary forcing
+    # smoother regulation of an adjustable load (the grid measurement lags behind a change of power)
+    hold_s: float = 0.0  # after a change, wait this long before an increase (half of it before a decrease)
+    ramp_up_w: float | None = None  # largest increase of power at once
+    deadband_w: float = 0.0  # ignore changes smaller than this (except to or from zero)
     windows: tuple[tuple[int, int], ...] = field(init=False, default=(), repr=False, compare=False)
     reset_minute: int = field(init=False, default=0, repr=False, compare=False)
 
@@ -102,14 +112,40 @@ class Device:
             self.reset_minute = parse_hhmm(self.reset_at) if self.reset_at else (self.windows[0][1] if self.windows else 0)
         except ValueError as err:
             raise ValueError(f"{self.id}: {err}") from None
-        if self.windows and self.offpeak_signal:
-            raise ValueError(f"{self.id}: use either off-peak windows or an off-peak signal, not both")
         if self.has_schedule and self.kind is DeviceKind.BATTERY:
             raise ValueError(f"{self.id}: a battery cannot have an off-peak schedule")
+        self._validate_regulation()
         if self.done_below_w is not None and not 0 <= self.done_below_w < self.power_w:
             raise ValueError(f"{self.id}: done_below_w must be within 0..power_w")
         if not math.isfinite(self.done_after_s) or self.done_after_s < 0:
             raise ValueError(f"{self.id}: done_after_s must be >= 0")
+
+    def _validate_regulation(self) -> None:
+        temps = (self.temp_max_solar, self.temp_max_offpeak, self.temp_min)
+        if any(t is not None for t in temps) and self.kind not in (DeviceKind.ON_OFF, DeviceKind.PROPORTIONAL):
+            raise ValueError(f"{self.id}: temperature settings are only for on/off and adjustable loads (a water heater)")
+        if self.has_temperature:
+            if any(t is not None and not (-50 < t < 150) for t in temps):
+                raise ValueError(f"{self.id}: temperatures must be between -50 and 150 degrees")
+            if not math.isfinite(self.temp_hysteresis) or self.temp_hysteresis < 0:
+                raise ValueError(f"{self.id}: temp_hysteresis must be >= 0")
+            highest = [t for t in (self.temp_max_solar, self.temp_max_offpeak) if t is not None]
+            if self.temp_min is not None and highest and self.temp_min + self.temp_hysteresis >= min(highest):
+                raise ValueError(f"{self.id}: temp_min plus the hysteresis must stay below the maximum temperatures")
+        for name in ("hold_s", "deadband_w"):
+            value = getattr(self, name)
+            if not math.isfinite(value) or value < 0:
+                raise ValueError(f"{self.id}: {name} must be >= 0")
+        if self.ramp_up_w is not None and not (math.isfinite(self.ramp_up_w) and self.ramp_up_w > 0):
+            raise ValueError(f"{self.id}: ramp_up_w must be > 0")
+
+    @property
+    def has_temperature(self) -> bool:
+        return any(t is not None for t in (self.temp_max_solar, self.temp_max_offpeak, self.temp_min))
+
+    @property
+    def offpeak_temp_limit(self) -> float | None:
+        return self.temp_max_offpeak if self.temp_max_offpeak is not None else self.temp_max_solar
 
     # ---- off-peak helpers ----
 
@@ -159,6 +195,7 @@ class DeviceReading:
     soc: float | None = None  # state of charge, %
     connected: bool | None = None  # EV plugged in; None = unknown, assumed connected
     offpeak: bool | None = None  # tariff signal: True = off-peak now; None = unknown (never forces the load)
+    temperature: float | None = None  # tank temperature, degrees; None = unknown (a device with temperature settings then stops)
 
 
 @dataclass
@@ -171,7 +208,11 @@ class DeviceState:
     topup_since: float | None = None  # when the device was first seen on during its top-up
     signal_prev: bool | None = None  # last known off-peak signal of a signal-driven device
     signal_period: int = 0  # counts the off-peak periods seen so far (each rising edge starts a new one)
-    forced: bool = False  # fed at full power by the off-peak top-up in the last step
+    forced: bool = False  # fed from the grid on purpose (off-peak top-up or sanitary) in the last step
+    hot_solar: bool = False  # tank above its solar maximum (hysteresis memory)
+    hot_offpeak: bool = False  # tank above its off-peak maximum (hysteresis memory)
+    cold: bool = False  # tank under its sanitary minimum (hysteresis memory)
+    reason: str = "idle"  # what drives the device now: idle, solar, offpeak, sanitary, hot, sensor_fault, limited, disabled
 
     @property
     def on(self) -> bool:

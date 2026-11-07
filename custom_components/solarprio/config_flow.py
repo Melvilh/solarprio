@@ -12,7 +12,9 @@ from homeassistant.helpers import selector
 from .const import (
     CONF_CONSUMPTION_ENTITY,
     CONF_DEVICES,
+    CONF_EMERGENCY,
     CONF_EXPORT_ENTITY,
+    CONF_HOUSE_ENTITY,
     CONF_INTERVAL,
     CONF_INVERT,
     CONF_MARGIN,
@@ -21,6 +23,7 @@ from .const import (
     CONF_ON_STALE,
     CONF_PRODUCTION_ENTITY,
     CONF_STALE_AFTER,
+    CONF_SUBSCRIPTION,
     DEFAULT_INTERVAL,
     DEFAULT_STALE_AFTER,
     DOMAIN,
@@ -124,10 +127,13 @@ class SolarPrioConfigFlow(ConfigFlow, domain=DOMAIN):
         fields.update(
             {
                 vol.Required(CONF_INTERVAL, default=DEFAULT_INTERVAL): _number("s", 1, 300),
-                vol.Required(CONF_STALE_AFTER, default=DEFAULT_STALE_AFTER): _number("s", 5, 3600),
+                vol.Required(CONF_STALE_AFTER, default=DEFAULT_STALE_AFTER): _number("s", 0, 3600),
                 vol.Required(CONF_ON_STALE, default=ON_STALE_OFF): _select([ON_STALE_OFF, ON_STALE_HOLD]),
                 vol.Required(CONF_MARGIN, default=0): _number("W", 0, 2000),
                 vol.Required(CONF_OFFPEAK_BUDGET, default=0): _number("W", 0, 1_000_000),
+                vol.Optional(CONF_SUBSCRIPTION): _number("VA", 500, 100_000),
+                vol.Optional(CONF_HOUSE_ENTITY): SENSOR,
+                vol.Optional(CONF_EMERGENCY): _number("W", 1, 20_000),
             }
         )
         return self.async_show_form(
