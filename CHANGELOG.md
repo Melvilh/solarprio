@@ -27,6 +27,9 @@ First public version (alpha).
   (`docs/WATER_HEATER_EXAMPLE.md`).
 - Off-peak top-up: off-peak windows per device, fed at full power until it stops consuming, then the next device in
   priority order (`docs/OFFPEAK.md`). Needs a measured power sensor.
+- Off-peak power budget (`offpeak_budget_w`): top up several devices together up to a power, default one at a time.
+- Home Assistant setup pre-filled from the Energy dashboard (grid and solar power sensors), import of the dashboard's
+  devices, and copy of a device (`docs/MANY_DEVICES.md`).
 
 ### Safety behaviour
 - Undelivered commands (broker down, service error) are retried and never counted as routed power.

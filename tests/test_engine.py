@@ -154,3 +154,27 @@ def test_rollback_command_keeps_routed_power_truthful():
     engine.rollback_command("heater", 0.0)  # the "on" command never reached the device
     assert engine.routed_w == 0
     assert not engine.state("heater").on
+
+
+def test_several_devices_start_in_the_same_cycle_when_the_surplus_allows_it():
+    """Company site: contactor-switched charging points and several water heaters share a large PV surplus."""
+    devices = [Device(id=f"evse{i}", name=f"EVSE {i}", priority=i, kind=DeviceKind.ON_OFF, power_w=7000) for i in range(1, 5)]
+    devices += [Device(id=f"ecs{i}", name=f"ECS {i}", priority=4 + i, kind=DeviceKind.ON_OFF, power_w=3000) for i in (1, 2)]
+    engine = Engine(devices)
+    first = engine.step(30000, 0.0)
+    assert [first[f"evse{i}"] for i in range(1, 5)] == [7000] * 4  # 28 kW in one step
+    assert first["ecs1"] == 0 and first["ecs2"] == 0  # 2 kW left: the 3 kW heaters do not fit
+    assert engine.step(40000, 5.0)["ecs1"] == 3000  # more sun: they start, still in priority order
+
+
+def test_a_contactor_charger_whose_car_draws_less_frees_the_rest_for_the_next_device():
+    """A charging point switched by a contactor is an on/off load: the car decides the real current."""
+    from solarprio import DeviceReading
+
+    evse = Device(id="evse", name="EVSE", priority=1, kind=DeviceKind.ON_OFF, power_w=7000, settle_s=30)
+    heater = Device(id="ecs", name="ECS", priority=2, kind=DeviceKind.ON_OFF, power_w=4000)
+    engine = Engine([evse, heater])
+    assert engine.step(8000, 0.0) == {"evse": 7000, "ecs": 0}  # 1 kW left: the heater does not fit
+    engine.set_reading("evse", DeviceReading(measured_w=3000))  # the car only takes 3 kW
+    assert engine.step(8000, 10.0)["ecs"] == 0  # right after the change we still trust the command
+    assert engine.step(8000, 40.0) == {"evse": 7000, "ecs": 4000}  # after the settle time the heater gets the 4 kW

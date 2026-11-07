@@ -20,6 +20,7 @@ class RuntimeConfig:
     stale_after_s: float = 30.0  # measurement older than this is considered lost
     on_stale: str = "off"  # "off" (safe default) or "hold"
     resend_every_s: float = 60.0  # re-send unchanged commands, in case a device missed one
+    offpeak_budget_w: float = 0.0  # power the off-peak top-up may feed at once; 0 = one device at a time
 
 
 @dataclass
@@ -87,6 +88,8 @@ def parse_config(raw: dict[str, Any]) -> Config:
         raise ConfigError("runtime.on_stale must be 'off' or 'hold'")
     if runtime.interval_s <= 0:
         raise ConfigError("runtime.interval_s must be > 0")
+    if runtime.offpeak_budget_w < 0:
+        raise ConfigError("runtime.offpeak_budget_w must be >= 0")
 
     try:
         mqtt = MqttConfig(**raw.get("mqtt", {}))

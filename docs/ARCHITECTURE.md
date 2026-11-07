@@ -28,7 +28,8 @@ container. So the engine knows nothing about Home Assistant.
 - `DeviceReading` (`Engine.set_reading`): optional measured power, state of charge and plug state per device.
   Safety limits (SoC reached, car unplugged) override the min on/off timers. `routed_w` uses measured power when known,
   and a device measured below its command (after `settle_s`) frees the difference for lower priorities.
-- Off-peak top-up (`Device.offpeak`): `Engine.step(..., local)` picks one device inside its window, feeds it at full
+- Off-peak top-up (`Device.offpeak`): `Engine.step(..., local)` picks the devices inside their window (one, or several up to
+  `offpeak_budget_w`), feeds it at full
   power (taken out of the shared surplus), and marks it done for the daily period when its measured power stays low
   after `done_after_s`. Without `local` (measurement lost) there is no top-up.
 - `available_w` **includes what managed loads already consume**. Helpers in

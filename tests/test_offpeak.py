@@ -21,8 +21,8 @@ def at(hour, minute=0, day=10):
 class Sim:
     """An engine plus loads that draw their rated power when commanded, unless they are ``hot`` (thermostat open)."""
 
-    def __init__(self, devices, start, hot=()):
-        self.engine, self.t, self.hot, self.history = Engine(devices), start, set(hot), []
+    def __init__(self, devices, start, hot=(), budget=0.0):
+        self.engine, self.t, self.hot, self.history = Engine(devices, offpeak_budget_w=budget), start, set(hot), []
         self.rated = {d.id: d.power_w for d in devices}
 
     def clock(self):
@@ -204,3 +204,51 @@ def test_timezone_aware_local_time_uses_the_wall_clock():
 def test_invalid_settings_are_refused(kw):
     with pytest.raises(ValueError):
         heater(**kw)
+
+
+# ---------------------------------------------------------------- several devices at once (company sites)
+
+def fleet(n=4, power=7000, **kw):
+    return [heater(f"c{i}", i, power_w=power, **kw) for i in range(1, n + 1)]
+
+
+def test_a_budget_lets_several_devices_be_topped_up_together_in_priority_order():
+    sim = Sim(fleet(4), at(23, 0), budget=21000)  # 4 chargers of 7 kW, 21 kW available at night
+    cmd = sim.run(30)
+    assert cmd == {"c1": 7000, "c2": 7000, "c3": 7000, "c4": 0}
+    assert sum(cmd.values()) <= 21000
+
+
+def test_the_first_device_always_starts_even_if_it_exceeds_the_budget():
+    sim = Sim(fleet(2), at(23, 0), budget=3000)
+    assert sim.run(30) == {"c1": 7000, "c2": 0}
+
+
+def test_a_device_that_does_not_fit_waits_and_a_smaller_one_below_it_may_start():
+    devices = [heater("big", 1, power_w=7000), heater("huge", 2, power_w=7000), heater("small", 3, power_w=2000)]
+    sim = Sim(devices, at(23, 0), budget=10000)
+    assert sim.run(30) == {"big": 7000, "huge": 0, "small": 2000}
+
+
+def test_a_finished_device_frees_its_share_of_the_budget_at_once():
+    sim = Sim(fleet(3), at(22, 30), hot={"c1"}, budget=14000)
+    first = sim.run(60)
+    assert first == {"c1": 7000, "c2": 7000, "c3": 0}
+    cmd = sim.run(120)  # c1 found hot after the grace period
+    assert cmd == {"c1": 0, "c2": 7000, "c3": 7000}
+
+
+def test_without_a_budget_devices_are_still_one_at_a_time():
+    sim = Sim(fleet(3), at(23, 0))
+    assert sim.run(30) == {"c1": 7000, "c2": 0, "c3": 0}
+
+
+def test_the_budget_cannot_be_negative():
+    with pytest.raises(ValueError):
+        Engine([], offpeak_budget_w=-1)
+
+
+def test_the_power_of_all_topped_up_devices_is_taken_out_of_the_sun():
+    dimmer = Device(id="dim", name="Dimmer", priority=0, kind=DeviceKind.PROPORTIONAL, power_w=9000)
+    sim = Sim([dimmer, *fleet(2, offpeak=("12:00-14:00",))], at(12, 30), budget=14000)
+    assert sim.run(5, available=16000) == {"dim": 2000.0, "c1": 7000.0, "c2": 7000.0}

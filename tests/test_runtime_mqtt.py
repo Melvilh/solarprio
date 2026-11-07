@@ -186,3 +186,84 @@ max_current_a = 16
         assert wait_for(lambda: received.get("out/ev/enable") == "OFF")
     finally:
         observer.loop_stop()
+
+
+def test_offpeak_top_up_with_a_budget_over_real_mqtt(broker_port, tmp_path):
+    """Three 7 kW charging points, a 14 kW budget, no sun: two start; one finds itself full and the third takes over."""
+    from datetime import datetime, timedelta
+
+    now = datetime.now()
+    window = f"{(now - timedelta(hours=1)).strftime('%H:%M')}-{(now + timedelta(hours=1)).strftime('%H:%M')}"
+    devices = "".join(f"""
+[[device]]
+id = "c{i}"
+name = "Charger {i}"
+priority = {i}
+kind = "on_off"
+power_w = 7000
+offpeak = ["{window}"]
+done_after_s = 1
+  [device.actuator]
+  type = "mqtt"
+  topic = "out/c{i}"
+  [device.readings]
+  measured_topic = "in/c{i}/power"
+""" for i in (1, 2, 3))
+    config = tmp_path / "config.toml"
+    config.write_text(f"""
+[runtime]
+interval_s = 0.2
+stale_after_s = 5
+offpeak_budget_w = 14000
+
+[mqtt]
+host = "127.0.0.1"
+port = {broker_port}
+client_id = "solarprio-test-offpeak"
+
+[source]
+mode = "export"
+export_topic = "grid/export_w"
+{devices}""")
+
+    received: dict[str, str] = {}
+    observer = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="observer-offpeak")
+    observer.on_message = lambda c, u, m: received.__setitem__(m.topic, m.payload.decode())
+    observer.connect("127.0.0.1", broker_port)
+    observer.subscribe("out/#")
+    observer.loop_start()
+    full = set()  # chargers whose car is full: they draw nothing
+
+    async def scenario():
+        stop_task = asyncio.create_task(run(str(config)))
+        try:
+            world = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id="world")
+            world.connect("127.0.0.1", broker_port)
+            world.loop_start()
+
+            async def tick(seconds):
+                for _ in range(int(seconds * 10)):
+                    world.publish("grid/export_w", "0")
+                    for i in (1, 2, 3):
+                        drawn = 7000 if received.get(f"out/c{i}") == "ON" and f"c{i}" not in full else 0
+                        world.publish(f"in/c{i}/power", str(drawn))
+                    await asyncio.sleep(0.1)
+
+            await tick(2.5)
+            assert [received.get(f"out/c{i}") for i in (1, 2, 3)] == ["ON", "ON", "OFF"]
+            full.add("c1")
+            await tick(4)
+            assert [received.get(f"out/c{i}") for i in (1, 2, 3)] == ["OFF", "ON", "ON"]
+            world.loop_stop()
+        finally:
+            import os
+            import signal
+
+            os.kill(os.getpid(), signal.SIGTERM)
+            await asyncio.wait_for(stop_task, 10)
+
+    try:
+        asyncio.run(scenario())
+        assert wait_for(lambda: all(received.get(f"out/c{i}") == "OFF" for i in (1, 2, 3)))
+    finally:
+        observer.loop_stop()

@@ -18,11 +18,14 @@
           "interval_s": "Période de régulation",
           "stale_after_s": "Mesure considérée perdue après",
           "on_stale": "Quand la mesure est perdue",
-          "margin_w": "Marge d'injection à conserver"
+          "margin_w": "Marge d'injection à conserver",
+          "offpeak_budget_w": "Budget de puissance en heures creuses"
         },
         "data_description": {
-          "margin_w": "Watts volontairement non routés pour que le bruit de mesure et la latence ne deviennent pas du soutirage."
-        }
+          "margin_w": "Watts volontairement non routés pour que le bruit de mesure et la latence ne deviennent pas du soutirage.",
+          "offpeak_budget_w": "Puissance totale que la chauffe en heures creuses peut alimenter à la fois. 0 = un appareil à la fois. Indiquez votre puissance souscrite moins le reste du site pour faire tourner plusieurs bornes ou chauffe-eau ensemble."
+        },
+        "description": "Tableau de bord Énergie : capteur de puissance réseau {grid}, capteur de puissance solaire {solar} (« - » = aucun utilisable ; un nombre = autant de capteurs réseau, pré-rempli seulement s'il n'y en a qu'un). Le tableau compte la puissance tirée du réseau en positif : « Mon compteur indique le soutirage en positif » est donc pré-réglé quand son capteur réseau est utilisé."
       }
     },
     "abort": {
@@ -36,7 +39,9 @@
         "menu_options": {
           "add_device": "Ajouter un appareil",
           "edit_select": "Modifier un appareil",
-          "remove_device": "Supprimer des appareils"
+          "remove_device": "Supprimer des appareils",
+          "import_energy": "Importer des appareils du tableau Énergie",
+          "copy_select": "Copier un appareil"
         }
       },
       "edit_select": {
@@ -99,6 +104,21 @@
           "reset_at": "HH:MM. Un appareil trouvé terminé est de nouveau alimenté à partir de cette heure. Par défaut : la fin de la première plage, donc une fois par jour.",
           "done_below_w": "Puissance mesurée en dessous de laquelle l'appareil est considéré comme terminé.",
           "done_after_s": "Secondes de marche avant qu'une faible consommation signifie terminé (capteurs lents, appel de courant)."
+        }
+      },
+      "import_energy": {
+        "title": "Importer depuis le tableau Énergie",
+        "description": "Le nom et le capteur de puissance viennent du tableau ; vous choisissez ensuite l'entité à piloter et la puissance de chaque appareil.",
+        "data": {
+          "devices": "Appareils à ajouter",
+          "kind": "Type de ces appareils"
+        }
+      },
+      "copy_select": {
+        "title": "Copier un appareil",
+        "description": "Ouvre un nouvel appareil avec les mêmes réglages (puissance, durées, heures creuses). Vous ne choisissez que son nom et ses entités.",
+        "data": {
+          "device": "Appareil à copier"
         }
       }
     },

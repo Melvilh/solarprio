@@ -11,7 +11,12 @@ from .models import Device, DeviceKind, DeviceReading, DeviceState
 
 
 class Engine:
-    def __init__(self, devices: list[Device] | None = None) -> None:
+    def __init__(self, devices: list[Device] | None = None, offpeak_budget_w: float = 0.0) -> None:
+        """``offpeak_budget_w``: total power the off-peak top-up may feed at once. 0 means one device at a time;
+        otherwise devices are topped up in priority order as long as they fit (the first one always starts)."""
+        if offpeak_budget_w < 0:
+            raise ValueError("offpeak_budget_w must be >= 0")
+        self._offpeak_budget_w = offpeak_budget_w
         self._devices: dict[str, Device] = {}
         self._states: dict[str, DeviceState] = {}
         self._readings: dict[str, DeviceReading] = {}
@@ -106,17 +111,22 @@ class Engine:
             return not self._soc_blocked(dev, state, reading) and reading.connected is not False
         return True
 
-    def _top_up(self, now: float, local: datetime | None) -> str | None:
-        """Pick the one device to feed from the grid now: the first by priority that is not finished.
+    def _top_up(self, now: float, local: datetime | None) -> set[str]:
+        """Pick the devices to feed from the grid now: those not finished, by priority, as far as the budget allows.
 
         A device that has been on for ``done_after_s`` and consumes (almost) nothing is finished: it is marked done
-        for this daily period and the next device in priority order takes its turn, in the same step.
+        for this daily period and the next device in priority order takes its turn, in the same step. A device that
+        does not fit in the budget waits (a smaller one further down may still fit).
         """
-        chosen = None
+        chosen: set[str] = set()
+        used_w = 0.0
         for dev in sorted(self._devices.values(), key=lambda d: d.priority):
             state, reading = self._states[dev.id], self._readings.get(dev.id)
-            if local is None or chosen is not None or not self._top_up_candidate(dev, state, reading, local):
+            if local is None or not self._top_up_candidate(dev, state, reading, local):
                 state.topup_since = None
+                continue
+            if chosen and used_w + dev.power_w > self._offpeak_budget_w:
+                state.topup_since = None  # waits its turn
                 continue
             if state.power_w > 0:
                 if state.topup_since is None:
@@ -126,7 +136,8 @@ class Engine:
                     continue
             else:
                 state.topup_since = None
-            chosen = dev.id
+            chosen.add(dev.id)
+            used_w += dev.power_w
         return chosen
 
     def step(self, available_w: float, now: float, local: datetime | None = None) -> dict[str, float]:
@@ -136,19 +147,19 @@ class Engine:
         including what they already consume (see ``sources.available_*``).
 
         ``local`` is the wall-clock time. Without it there is no off-peak top-up, which is what callers pass when the
-        measurement is lost. The device being topped up gets its full power first and that power is taken out of what
+        measurement is lost. The devices being topped up get their full power first and that power is taken out of what
         the others may share.
         """
         top_up = self._top_up(now, local)
         for dev_id, state in self._states.items():
-            state.forced = dev_id == top_up
-        remaining = max(available_w - (self._devices[top_up].power_w if top_up else 0.0), 0.0)
+            state.forced = dev_id in top_up
+        remaining = max(available_w - sum(self._devices[i].power_w for i in top_up), 0.0)
         commands: dict[str, float] = {}
 
         for dev in sorted(self._devices.values(), key=lambda d: d.priority):
             state = self._states[dev.id]
             reading = self._readings.get(dev.id)
-            if dev.id == top_up:
+            if dev.id in top_up:
                 power = self._apply_timers(dev, state, dev.power_w, now)
                 self._commit(state, power, now)
                 commands[dev.id] = power

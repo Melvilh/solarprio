@@ -87,3 +87,27 @@ def test_bad_schedules_are_reported_with_the_device_id(bad):
     raw["device"][0].update(bad, readings={"measured_topic": "t"})
     with pytest.raises(ConfigError, match="'a'"):
         parse_config(raw)
+
+
+def test_offpeak_budget_lets_the_runtime_feed_several_devices_together():
+    raw = minimal(runtime={"offpeak_budget_w": 21000})
+    raw["device"] = [
+        {"id": f"c{i}", "name": f"Charger {i}", "priority": i, "kind": "on_off", "power_w": 7000, "offpeak": ["22:30-06:30"],
+         "actuator": {"type": "mqtt", "topic": f"c{i}/set"}, "readings": {"measured_topic": f"c{i}/power"}}
+        for i in range(1, 5)
+    ]
+    cfg = parse_config(raw)
+    assert cfg.runtime.offpeak_budget_w == 21000
+    clock, local = [0.0], [datetime(2026, 11, 10, 23, 0)]
+    engine = Engine(cfg.devices, offpeak_budget_w=cfg.runtime.offpeak_budget_w)
+    actuator = FakeActuator()
+    ctl = Controller(engine, FakeSource(), actuator, cfg.runtime, lambda: clock[0], local_clock=lambda: local[0])
+    for dev_id in engine.device_ids:
+        engine.set_reading(dev_id, DeviceReading(measured_w=0.0))
+    asyncio.run(ctl.tick())
+    assert {d: p for d, p in actuator.calls} == {"c1": 7000.0, "c2": 7000.0, "c3": 7000.0, "c4": 0.0}
+
+
+def test_a_negative_budget_is_refused():
+    with pytest.raises(ConfigError, match="offpeak_budget_w"):
+        parse_config(minimal(runtime={"offpeak_budget_w": -1}))

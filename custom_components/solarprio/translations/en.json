@@ -18,11 +18,14 @@
           "interval_s": "Control period",
           "stale_after_s": "Measurement considered lost after",
           "on_stale": "When the measurement is lost",
-          "margin_w": "Export margin to keep"
+          "margin_w": "Export margin to keep",
+          "offpeak_budget_w": "Off-peak power budget"
         },
         "data_description": {
-          "margin_w": "Watts left unrouted so measurement noise and latency do not turn into grid import."
-        }
+          "margin_w": "Watts left unrouted so measurement noise and latency do not turn into grid import.",
+          "offpeak_budget_w": "Total power the off-peak top-up may feed at once. 0 = one device at a time. Set your subscribed power minus the rest of the site to let several chargers or water heaters run together."
+        },
+        "description": "Energy dashboard: grid power sensor {grid}, solar power sensor {solar} (\"-\" = none usable; a number = that many grid sensors, pre-filled only when there is exactly one). The dashboard counts power drawn from the grid as positive, so \"My meter reports import as positive\" is pre-set when its grid sensor is used."
       }
     },
     "abort": {
@@ -36,7 +39,9 @@
         "menu_options": {
           "add_device": "Add a device",
           "edit_select": "Edit a device",
-          "remove_device": "Remove devices"
+          "remove_device": "Remove devices",
+          "import_energy": "Import devices from the Energy dashboard",
+          "copy_select": "Copy a device"
         }
       },
       "edit_select": {
@@ -99,6 +104,21 @@
           "reset_at": "HH:MM. A device found finished is topped up again from this time. Default: the end of the first window, so once a day.",
           "done_below_w": "Measured power at or below which the device counts as finished.",
           "done_after_s": "Seconds the device must have been on before a low consumption means finished (slow sensors, inrush)."
+        }
+      },
+      "import_energy": {
+        "title": "Import from the Energy dashboard",
+        "description": "Name and power sensor are taken from the dashboard; you then choose the entity to control and the power of each device.",
+        "data": {
+          "devices": "Devices to add",
+          "kind": "Type of these devices"
+        }
+      },
+      "copy_select": {
+        "title": "Copy a device",
+        "description": "Opens a new device with the same settings (power, timers, off-peak). You only choose its name and entities.",
+        "data": {
+          "device": "Device to copy"
         }
       }
     },

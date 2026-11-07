@@ -18,6 +18,7 @@ from .const import (
     CONF_INVERT,
     CONF_MARGIN,
     CONF_MODE,
+    CONF_OFFPEAK_BUDGET,
     CONF_ON_STALE,
     CONF_PRODUCTION_ENTITY,
     CONF_STALE_AFTER,
@@ -31,6 +32,7 @@ from .const import (
 )
 from .coordinator import DEVICE_FIELDS, build_device
 from .core import DeviceKind
+from .energy import EnergyDashboard, async_read_energy_dashboard
 
 SENSOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
 
@@ -48,6 +50,10 @@ def _number(unit: str | None = None, minimum: float = 0, maximum: float = 1_000_
 
 def _entity(domains: list[str]) -> selector.EntitySelector:
     return selector.EntitySelector(selector.EntitySelectorConfig(domain=domains))
+
+
+def _suggest(entity_id: str | None) -> dict[str, Any] | None:
+    return {"suggested_value": entity_id} if entity_id else None
 
 
 def _details_schema(kind: str, values: dict[str, Any], next_priority: int) -> vol.Schema:
@@ -141,10 +147,19 @@ class SolarPrioConfigFlow(ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self._data.update(user_input)
             return self.async_create_entry(title="solarprio", data=self._data, options={CONF_DEVICES: []})
+        energy = await async_read_energy_dashboard(self.hass)
+        # The Energy dashboard counts power drawn from the grid as positive, so its grid sensor needs "invert".
+        # The dashboard has no whole-house consumption, so the consumption sensor is never pre-filled.
         fields: dict[Any, Any] = (
-            {vol.Required(CONF_EXPORT_ENTITY): SENSOR, vol.Required(CONF_INVERT, default=False): selector.BooleanSelector()}
+            {
+                vol.Required(CONF_EXPORT_ENTITY, description=_suggest(energy.grid_power)): SENSOR,
+                vol.Required(CONF_INVERT, default=energy.grid_power is not None): selector.BooleanSelector(),
+            }
             if export
-            else {vol.Required(CONF_PRODUCTION_ENTITY): SENSOR, vol.Required(CONF_CONSUMPTION_ENTITY): SENSOR}
+            else {
+                vol.Required(CONF_PRODUCTION_ENTITY, description=_suggest(energy.solar_power)): SENSOR,
+                vol.Required(CONF_CONSUMPTION_ENTITY): SENSOR,
+            }
         )
         fields.update(
             {
@@ -152,9 +167,20 @@ class SolarPrioConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_STALE_AFTER, default=DEFAULT_STALE_AFTER): _number("s", 5, 3600),
                 vol.Required(CONF_ON_STALE, default=ON_STALE_OFF): _select([ON_STALE_OFF, ON_STALE_HOLD]),
                 vol.Required(CONF_MARGIN, default=0): _number("W", 0, 2000),
+                vol.Required(CONF_OFFPEAK_BUDGET, default=0): _number("W", 0, 1_000_000),
             }
         )
-        return self.async_show_form(step_id="entities", data_schema=vol.Schema(fields))
+        return self.async_show_form(
+            step_id="entities",
+            data_schema=vol.Schema(fields),
+            description_placeholders={
+                "grid": energy.grid_power or ("-" if energy.grid_sensors == 0 else str(energy.grid_sensors)),
+                "solar": energy.solar_power or "-",
+            },
+        )
+
+
+COPY_NOT_KEPT = ("id", "name", "entity_id", "switch_entity", "soc_entity", "connected_entity", "measured_entity", "priority", "enabled")
 
 
 class SolarPrioOptionsFlow(OptionsFlow):
@@ -163,9 +189,14 @@ class SolarPrioOptionsFlow(OptionsFlow):
     def __init__(self) -> None:
         self._editing: str | None = None
         self._kind: str = DeviceKind.ON_OFF.value
+        self._prefill: dict[str, Any] = {}  # suggested values of a new device (copy, Energy dashboard import)
+        self._queue: list[tuple[str, str]] = []  # Energy dashboard devices still to configure
+        self._working: list[dict[str, Any]] | None = None  # devices added so far during an import
 
     @property
     def _devices(self) -> list[dict[str, Any]]:
+        if self._working is not None:
+            return self._working
         return list(self.config_entry.options.get(CONF_DEVICES, []))
 
     def _save(self, devices: list[dict[str, Any]]) -> ConfigFlowResult:
@@ -173,9 +204,63 @@ class SolarPrioOptionsFlow(OptionsFlow):
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         menu = ["add_device"]
+        if await self._importable():
+            menu.append("import_energy")
         if self._devices:
-            menu += ["edit_select", "remove_device"]
+            menu += ["copy_select", "edit_select", "remove_device"]
         return self.async_show_menu(step_id="init", menu_options=menu)
+
+    # ---- import from the Energy dashboard / copy ----
+
+    async def _importable(self) -> list[tuple[str, str]]:
+        """Devices of the Energy dashboard with a power sensor that no solarprio device uses yet."""
+        used = {d.get("measured_entity") for d in self._devices}
+        energy = await async_read_energy_dashboard(self.hass)
+        return [(name, sensor) for name, sensor in energy.devices if sensor not in used]
+
+    async def async_step_import_energy(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Pick devices already tracked in the Energy dashboard: their name and power sensor are reused."""
+        available = await self._importable()
+        names = dict((sensor, name) for name, sensor in available)
+        if user_input is not None and user_input["devices"]:
+            self._kind, self._editing = user_input["kind"], None
+            self._queue = [(names[s], s) for s in user_input["devices"] if s in names]
+            self._working = list(self._devices)
+            return await self._next_import()
+        options = [selector.SelectOptionDict(value=s, label=f"{n} ({s})") for n, s in available]
+        return self.async_show_form(
+            step_id="import_energy",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("devices"): selector.SelectSelector(selector.SelectSelectorConfig(options=options, multiple=True)),
+                    vol.Required("kind", default=DeviceKind.ON_OFF.value): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[k.value for k in DeviceKind if k is not DeviceKind.BATTERY],
+                            translation_key="device_kind",
+                            mode=selector.SelectSelectorMode.LIST,
+                        )
+                    ),
+                }
+            ),
+        )
+
+    async def _next_import(self) -> ConfigFlowResult:
+        name, sensor = self._queue.pop(0)
+        self._prefill = {"name": name, "measured_entity": sensor}
+        return await self._details_form(None)
+
+    async def async_step_copy_select(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """New device pre-filled with the settings of an existing one (only entities and name to change)."""
+        if user_input is not None:
+            source = next(d for d in self._devices if d["id"] == user_input["device"])
+            self._editing, self._kind, self._working, self._queue = None, source["kind"], None, []
+            self._prefill = {k: v for k, v in source.items() if k not in COPY_NOT_KEPT} | {"name": f"{source['name']} 2"}
+            return await self._details_form(None)
+        options = [selector.SelectOptionDict(value=d["id"], label=f"{d['priority']}. {d['name']}") for d in sorted(self._devices, key=lambda d: d["priority"])]
+        return self.async_show_form(
+            step_id="copy_select",
+            data_schema=vol.Schema({vol.Required("device"): selector.SelectSelector(selector.SelectSelectorConfig(options=options))}),
+        )
 
     # ---- add / edit ----
 
@@ -222,9 +307,13 @@ class SolarPrioOptionsFlow(OptionsFlow):
             except (ValueError, TypeError):
                 errors["base"] = "invalid_device"
             else:
-                return self._save(self._merge(device))
+                merged = self._merge(device)
+                if self._queue:  # more devices to import: keep what we have and show the next form
+                    self._working = merged
+                    return await self._next_import()
+                return self._save(merged)
 
-        values = user_input or current
+        values = user_input or current or self._prefill
         return self.async_show_form(
             step_id="device_details",
             data_schema=_details_schema(self._kind, values, len(self._devices) + 1),

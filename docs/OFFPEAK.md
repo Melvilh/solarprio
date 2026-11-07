@@ -8,8 +8,9 @@ stops drawing power, so it is finished and the next device in priority order tak
 
 - In an off-peak window, the first device (by priority) that is not finished is fed at its **full power**, whatever
   the sun does. Its power is taken out of what the other devices may share.
-- **One device at a time**: the others wait, so you do not exceed your subscribed power. When the first is found
-  finished, the next one starts in that same control cycle.
+- **One device at a time** by default: the others wait, so you do not exceed your subscribed power. When the first is
+  found finished, the next one starts in that same control cycle. To top up several devices together (a company site
+  with several chargers or water heaters), set the off-peak power budget, see [MANY_DEVICES.md](MANY_DEVICES.md).
 - A device is found finished when it has been on for `done_after_s` (default 120 s, so a slow sensor or the start-up
   of a load is not mistaken for "hot") and its measured power is at or below `done_below_w` (default 5 % of its power).
 - Finished means finished **for the daily period**: it is not tried again until `reset_at` (default: the end of the

@@ -6,6 +6,7 @@ interval_s = 5        # control loop period
 stale_after_s = 30    # a measurement older than this counts as lost
 on_stale = "off"      # "off": switch loads off when the measurement is lost; "hold": keep them as they are
 resend_every_s = 60   # re-send unchanged commands this often
+# offpeak_budget_w = 21000   # off-peak top-up: devices fed together up to this power; 0 (default) = one at a time
 
 [mqtt]
 host = "mosquitto"

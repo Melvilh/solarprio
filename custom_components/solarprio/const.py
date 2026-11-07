@@ -11,6 +11,7 @@ CONF_INTERVAL = "interval_s"
 CONF_STALE_AFTER = "stale_after_s"
 CONF_ON_STALE = "on_stale"
 CONF_MARGIN = "margin_w"
+CONF_OFFPEAK_BUDGET = "offpeak_budget_w"
 
 MODE_EXPORT = "export"
 MODE_PRODUCTION = "production"

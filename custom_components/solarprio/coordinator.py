@@ -20,6 +20,7 @@ from .const import (
     CONF_INTERVAL,
     CONF_INVERT,
     CONF_MARGIN,
+    CONF_OFFPEAK_BUDGET,
     CONF_MODE,
     CONF_ON_STALE,
     CONF_PRODUCTION_ENTITY,
@@ -73,7 +74,10 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(seconds=self._conf.get(CONF_INTERVAL, DEFAULT_INTERVAL)),
         )
         self.device_cfgs: dict[str, dict[str, Any]] = {d["id"]: d for d in entry.options.get(CONF_DEVICES, [])}
-        self.engine = Engine([build_device(d) for d in self.device_cfgs.values()])
+        self.engine = Engine(
+            [build_device(d) for d in self.device_cfgs.values()],
+            offpeak_budget_w=float(self._conf.get(CONF_OFFPEAK_BUDGET, 0) or 0),
+        )
         self.enabled = True
         self._sent: dict[str, tuple[float, float]] = {}  # device -> (power_w, monotonic time it was sent)
 
