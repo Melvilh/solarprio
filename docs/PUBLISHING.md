@@ -20,11 +20,10 @@ a container image). Do them in this order.
 
 ## State of the repository
 
-Pushed to <https://github.com/Melvilh/solarprio> (branch `main`). First workflow runs: `Tests` (engine and runtime,
-Home Assistant integration) and `Validate` / hassfest pass. `Validate` / HACS fails only on the missing **repository
-topics**, which cannot be set from a commit: add them in the GitHub repository settings (step 4 below), then re-run the
-workflow. The HACS action also warns that the manifest has no `categories` (a warning, not a failure). The Docker
-image build has not run yet (it runs on pull requests and on tags). Not done yet: the `v0.1.0` tag and release.
+Pushed to <https://github.com/Melvilh/solarprio> (branch `main`) with its description and topics set. Workflows: `Tests`
+(engine and runtime, Home Assistant integration), `Validate` (hassfest, HACS) and `Docker image` (builds on pull requests
+and on tags, never run yet). The HACS action warns that the manifest has no `categories` (a warning, not a failure).
+The `v0.1.0` tag and release are created once `Tests` and `Validate` pass on the commit to tag.
 
 ## You do
 
