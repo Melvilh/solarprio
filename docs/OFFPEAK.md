@@ -20,6 +20,24 @@ stops drawing power, so it is finished and the next device in priority order tak
   Without it solarprio could not tell when the device is finished, so it never forces the device (and refuses the
   settings in the form / the TOML file).
 
+## Off-peak from an entity (like the Linky's tariff period)
+
+Instead of typing hours you can point a device at an **entity that tells when it is off-peak**: the tariff period
+of your Linky (a sensor), a binary sensor, a boolean, a select. This follows your real contract, including hours that
+change, with no hours to maintain.
+
+- The top-up runs **while the entity says off-peak**. Each new off-peak period (the entity going from peak to off-peak)
+  tries the device again, so a contract with two off-peak slots a day tries it at each slot. This differs from windows,
+  where a device found finished is left alone until the next day.
+- **Which states mean off-peak?** By default: `on`, `true`, `1`, `yes`, `HC`, `HC..`, `off_peak`, `low`, and any text
+  containing "creuse" (for example `HEURES CREUSES`), whatever the case. These defaults are what such sensors usually
+  report, **not verified on a real Linky**: look at the real state of your entity in *Developer tools > States* and, if
+  it differs, list the off-peak states yourself (for example `HC..` or a tariff index like `2`). When you list values,
+  only those count.
+- **Unknown or unavailable never starts anything**, and a sensor that flaps to unavailable and back does not count as
+  a new period.
+- Use it **instead of** windows on a device, not together (the form refuses both). It still needs the measured power.
+
 ## Home Assistant
 
 *Configure* > add or edit a device (on/off, adjustable or EV charger; not a battery):
@@ -27,6 +45,7 @@ stops drawing power, so it is finished and the next device in priority order tak
 | Field | Example |
 |---|---|
 | Off-peak windows | `22:30-06:30, 12:30-14:30` (local time, a window may cross midnight) |
+| or Off-peak signal entity | `sensor.linky_periode_tarifaire` (and, if needed, *States meaning off-peak*: `HC..`) |
 | Measured power sensor | `sensor.chauffe_eau_puissance_chauffe_eau` |
 | Finished when consumption falls to | `0` = automatic (5 % of the power) |
 | Check for finished only after it has run for | `120` s |
@@ -46,6 +65,8 @@ kind = "proportional"
 power_w = 2400
 offpeak = ["22:30-06:30"]       # your contract's hours
 # reset_at = "07:00"            # default: end of the first window
+# Instead of `offpeak`, follow a tariff topic (add offpeak_topic below, keep measured_topic):
+#   [device.readings]  offpeak_topic = "linky/tariff"   offpeak_values = ["HC.."]   # values optional
 # done_below_w = 100            # default: 5 % of power_w
 # done_after_s = 120
   [device.actuator]
@@ -76,5 +97,4 @@ the "finished" detection.
   again after about two minutes.
 - A device that never draws more than the threshold (a very small load, or a faulty sensor) is considered finished.
 - Energy objectives (a kWh target per day) are **not** implemented: only the "stops consuming" criterion.
-- Contract-specific rules (off-peak hours that change with the season, "jours Tempo") are not handled: set the windows
-  yourself.
+- Windows are fixed hours; for hours that change (seasons, tariff days) use the off-peak signal entity or topic.

@@ -58,6 +58,8 @@ class ReadingsConfig:
     disconnected_values: list[str] | None = None
     field: str | None = None  # JSON field to extract from payloads, if payloads are JSON
     measured_unit: str = "W"  # "W" or "kW"
+    offpeak_topic: str | None = None  # tariff signal: tells when it is off-peak (replaces the offpeak windows)
+    offpeak_values: list[str] | None = None  # payloads meaning off-peak; default list when unset
 
 
 @dataclass
@@ -139,6 +141,7 @@ def parse_config(raw: dict[str, Any]) -> Config:
             raise ConfigError(f"device {entry.get('id')!r}: missing actuator.type")
         try:
             entry["kind"] = DeviceKind(entry["kind"])
+            entry.setdefault("offpeak_signal", bool(reading_cfg and reading_cfg.get("offpeak_topic")))
             device = Device(**entry)
         except (KeyError, TypeError, ValueError) as e:
             raise ConfigError(f"invalid device {entry.get('id')!r}: {e}") from e
@@ -164,7 +167,7 @@ def parse_config(raw: dict[str, Any]) -> Config:
         )
 
     for device in devices:
-        if device.windows and not (device.id in readings and readings[device.id].measured_topic):
+        if device.has_schedule and not (device.id in readings and readings[device.id].measured_topic):
             raise ConfigError(
                 f"device {device.id!r}: offpeak needs readings.measured_topic (the top-up stops when the device stops consuming)"
             )

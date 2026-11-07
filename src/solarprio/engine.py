@@ -87,6 +87,7 @@ class Engine:
         for device_id, old in self._states.items():
             fresh = DeviceState()
             fresh.done_cycle = old.done_cycle  # a device found finished tonight is not topped up again tonight
+            fresh.signal_prev, fresh.signal_period = old.signal_prev, old.signal_period
             self._states[device_id] = fresh
         self._readings.clear()
 
@@ -95,15 +96,46 @@ class Engine:
     def offpeak_status(self, device_id: str, local: datetime) -> str | None:
         """None (no schedule), ``"heating"``, ``"done"`` (finished in this daily period) or ``"waiting"``."""
         dev, state = self._devices[device_id], self._states[device_id]
-        if not dev.windows:
+        if not dev.has_schedule:
             return None
         if state.forced:
             return "heating"
-        return "done" if state.done_cycle == dev.cycle_key(local) else "waiting"
+        key = self._period_key(dev, state, local)
+        return "done" if key is not None and state.done_cycle == key else "waiting"
 
-    def _top_up_candidate(self, dev: Device, state: DeviceState, reading: DeviceReading | None, local: datetime) -> bool:
-        """In an off-peak window, not finished yet, and its consumption can be checked."""
-        if not (dev.enabled and dev.windows and dev.in_offpeak(local)) or state.done_cycle == dev.cycle_key(local):
+    @staticmethod
+    def _period_key(dev: Device, state: DeviceState, local: datetime | None) -> str | None:
+        """The period in which a device may be found finished once: a day (windows) or one off-peak period (signal)."""
+        if dev.offpeak_signal:
+            return f"signal:{state.signal_period}"
+        return dev.cycle_key(local) if local is not None else None
+
+    def _track_signals(self) -> None:
+        """Count the off-peak periods of signal-driven devices: each change to off-peak starts a new one.
+
+        An unknown signal changes nothing, so a flapping sensor does not restart the top-up.
+        """
+        for dev in self._devices.values():
+            if not dev.offpeak_signal:
+                continue
+            state, reading = self._states[dev.id], self._readings.get(dev.id)
+            signal = reading.offpeak if reading is not None else None
+            if signal is None:
+                continue
+            if signal and state.signal_prev is not True:
+                state.signal_period += 1
+            state.signal_prev = signal
+
+    def _top_up_candidate(self, dev: Device, state: DeviceState, reading: DeviceReading | None, local: datetime | None) -> bool:
+        """Off-peak now (window or signal), not finished yet, and its consumption can be checked."""
+        if not (dev.enabled and dev.has_schedule):
+            return False
+        if dev.offpeak_signal:
+            if reading is None or reading.offpeak is not True:
+                return False  # unknown or not off-peak: never force on a doubtful signal
+        elif local is None or not dev.in_offpeak(local):
+            return False
+        if state.done_cycle == self._period_key(dev, state, local):
             return False
         if reading is None or reading.measured_w is None:
             return False  # without a measured power we could not tell when it is finished: never force blindly
@@ -120,9 +152,13 @@ class Engine:
         """
         chosen: set[str] = set()
         used_w = 0.0
+        if local is None:  # callers pass no clock when the grid measurement is lost: nothing is forced, whatever the mode
+            for state in self._states.values():
+                state.topup_since = None
+            return chosen
         for dev in sorted(self._devices.values(), key=lambda d: d.priority):
             state, reading = self._states[dev.id], self._readings.get(dev.id)
-            if local is None or not self._top_up_candidate(dev, state, reading, local):
+            if not self._top_up_candidate(dev, state, reading, local):
                 state.topup_since = None
                 continue
             if chosen and used_w + dev.power_w > self._offpeak_budget_w:
@@ -132,7 +168,7 @@ class Engine:
                 if state.topup_since is None:
                     state.topup_since = now
                 elif now - state.topup_since >= dev.done_after_s and reading.measured_w <= dev.done_threshold_w:
-                    state.done_cycle, state.topup_since = dev.cycle_key(local), None
+                    state.done_cycle, state.topup_since = self._period_key(dev, state, local), None
                     continue
             else:
                 state.topup_since = None
@@ -146,10 +182,12 @@ class Engine:
         ``available_w`` is the total solar power that could feed managed loads,
         including what they already consume (see ``sources.available_*``).
 
-        ``local`` is the wall-clock time. Without it there is no off-peak top-up, which is what callers pass when the
-        measurement is lost. The devices being topped up get their full power first and that power is taken out of what
+        ``local`` is the wall-clock time (devices with off-peak windows use it; devices driven by an off-peak signal read
+        the signal from their reading). Passing no ``local`` disables the off-peak top-up for every device, which is what
+        callers do when the grid measurement is lost. The devices being topped up get their full power first and that power is taken out of what
         the others may share.
         """
+        self._track_signals()
         top_up = self._top_up(now, local)
         for dev_id, state in self._states.items():
             state.forced = dev_id in top_up

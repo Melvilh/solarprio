@@ -111,3 +111,79 @@ def test_offpeak_budget_lets_the_runtime_feed_several_devices_together():
 def test_a_negative_budget_is_refused():
     with pytest.raises(ConfigError, match="offpeak_budget_w"):
         parse_config(minimal(runtime={"offpeak_budget_w": -1}))
+
+
+# ---------------------------------------------------------------- off-peak told by an MQTT topic
+
+def _signal_raw(**device):
+    raw = minimal()
+    raw["device"][0].update(readings={"measured_topic": "heater/power", "offpeak_topic": "linky/tariff", **device.pop("readings", {})},
+                            **device)
+    return raw
+
+
+def test_an_offpeak_topic_makes_the_device_follow_the_signal():
+    dev = parse_config(_signal_raw()).devices[0]
+    assert dev.offpeak_signal and dev.has_schedule and not dev.windows
+
+
+def test_a_signal_needs_a_measured_topic_and_cannot_be_mixed_with_windows():
+    raw = minimal()
+    raw["device"][0]["readings"] = {"offpeak_topic": "linky/tariff"}
+    with pytest.raises(ConfigError, match="measured_topic"):
+        parse_config(raw)
+    with pytest.raises(ConfigError, match="either"):
+        parse_config(_signal_raw(offpeak=["22:30-06:30"]))
+
+
+@pytest.mark.parametrize("payload, values, field, expected", [
+    ("HC..", None, None, True), ("HP..", None, None, False), ("unavailable", None, None, None),
+    ("2", ["2"], None, True), ("1", ["2"], None, False),
+    ('{"value": 2}', ["2"], "value", True), ('{"value": 1}', ["2"], "value", False), ("not json", ["2"], "value", None),
+])
+def test_the_topic_payload_is_read_as_a_tariff_state(payload, values, field, expected):
+    from fakes import FakeBus
+    from solarprio.runtime.adapters import MqttReadings
+    from solarprio.runtime.config import ReadingsConfig
+
+    bus = FakeBus()
+    cfg = {"a": ReadingsConfig(measured_topic="heater/power", offpeak_topic="linky/tariff", offpeak_values=values, field=field)}
+    readings = MqttReadings(bus, cfg, stale_after_s=30)
+    assert "linky/tariff" in bus.subscribed
+    bus.feed("linky/tariff", payload)
+    bus.feed("heater/power", '{"value": 0}' if field else "0")
+    assert readings.read_readings()["a"].offpeak is expected
+
+
+def test_a_stale_tariff_topic_is_unknown():
+    from fakes import FakeBus
+    from solarprio.runtime.adapters import MqttReadings
+    from solarprio.runtime.config import ReadingsConfig
+
+    bus = FakeBus()
+    readings = MqttReadings(bus, {"a": ReadingsConfig(measured_topic="p", offpeak_topic="t")}, stale_after_s=30)
+    bus.feed("t", "HC..", age=300)
+    bus.feed("p", "0")
+    assert readings.read_readings()["a"].offpeak is None
+
+
+def test_the_controller_feeds_a_device_while_the_topic_says_off_peak():
+    from fakes import FakeBus
+    from solarprio.runtime.adapters import MqttReadings
+    from solarprio.runtime.config import ReadingsConfig
+
+    bus, actuator, source = FakeBus(), FakeActuator(), FakeSource()
+    engine = Engine([Device(id="ecs", name="ECS", priority=1, kind=DeviceKind.ON_OFF, power_w=2000, offpeak_signal=True)])
+    readings = MqttReadings(bus, {"ecs": ReadingsConfig(measured_topic="p", offpeak_topic="t")}, stale_after_s=30)
+    ctl = Controller(engine, source, actuator, RuntimeConfig(), lambda: 0.0, readings=readings,
+                     local_clock=lambda: datetime(2026, 11, 10, 12, 0))
+    bus.feed("p", "0")
+    bus.feed("t", "HP..")
+    asyncio.run(ctl.tick())
+    assert all(power == 0 for _, power in actuator.calls)  # peak hours: never fed
+    bus.feed("t", "HC..")
+    asyncio.run(ctl.tick())
+    assert actuator.calls[-1] == ("ecs", 2000.0)
+    source.error = MeasurementUnavailable("grid sensor gone")  # safety first, even in off-peak
+    asyncio.run(ctl.tick())
+    assert actuator.calls[-1] == ("ecs", 0.0)

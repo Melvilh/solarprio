@@ -32,6 +32,8 @@ First public version (alpha).
   devices, and copy of a device (`docs/MANY_DEVICES.md`).
 - Contribution documentation: how to add compatibility (`docs/ADDING_COMPATIBILITY.md`), a compatibility list, hardware page
   and example templates, a roadmap, a compatibility issue template; every example configuration is validated by the tests.
+- Off-peak told by an entity or an MQTT topic (the Linky's tariff period, a binary sensor...) instead of time windows:
+  each new off-peak period tries the device again; unknown or unavailable never starts anything.
 
 ### Safety behaviour
 - Undelivered commands (broker down, service error) are retried and never counted as routed power.

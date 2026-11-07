@@ -31,7 +31,8 @@ container. So the engine knows nothing about Home Assistant.
 - Off-peak top-up (`Device.offpeak`): `Engine.step(..., local)` picks the devices inside their window (one, or several up to
   `offpeak_budget_w`), feeds it at full
   power (taken out of the shared surplus), and marks it done for the daily period when its measured power stays low
-  after `done_after_s`. Without `local` (measurement lost) there is no top-up.
+  after `done_after_s`. A device may instead follow an off-peak signal (`Device.offpeak_signal`, `DeviceReading.offpeak`,
+  read from an entity or topic): each rising edge starts a new period. Without `local` (measurement lost) there is no top-up.
 - `available_w` **includes what managed loads already consume**. Helpers in
   `sources.py` compute it from grid export or from production and consumption.
   Without this, the loop would oscillate: a heater that starts reduces the

@@ -2,7 +2,7 @@
 
 from .engine import Engine
 from .models import Device, DeviceKind, DeviceReading, DeviceState
-from .sources import available_from_export, available_from_production
+from .sources import available_from_export, available_from_production, parse_offpeak_state
 
 __all__ = [
     "Device",
@@ -12,5 +12,6 @@ __all__ = [
     "Engine",
     "available_from_export",
     "available_from_production",
+    "parse_offpeak_state",
 ]
 __version__ = "0.1.0"

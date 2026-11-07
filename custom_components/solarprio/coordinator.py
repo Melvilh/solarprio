@@ -32,7 +32,15 @@ from .const import (
     ON_STALE_HOLD,
     RESEND_EVERY_S,
 )
-from .core import Device, DeviceKind, DeviceReading, Engine, available_from_export, available_from_production
+from .core import (
+    Device,
+    DeviceKind,
+    DeviceReading,
+    Engine,
+    available_from_export,
+    available_from_production,
+    parse_offpeak_state,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,7 +49,7 @@ DEVICE_FIELDS = (
     "min_on_s", "min_off_s", "start_margin_w", "stay_tolerance_w", "enabled",
     "soc_max", "soc_resume_margin", "settle_s",
     "voltage_v", "phases", "min_current_a", "max_current_a", "current_step_a",
-    "offpeak", "reset_at", "done_below_w", "done_after_s",
+    "offpeak", "reset_at", "done_below_w", "done_after_s", "offpeak_signal",
 )
 
 
@@ -57,6 +65,7 @@ def build_device(cfg: dict[str, Any]) -> Device:
     if isinstance(values.get("offpeak"), str):  # the form holds the windows as one text: "22:30-06:30, 12:30-14:30"
         values["offpeak"] = tuple(w.strip() for w in values["offpeak"].replace(";", ",").split(",") if w.strip())
     values["reset_at"] = values.get("reset_at") or None
+    values["offpeak_signal"] = bool(cfg.get("offpeak_entity"))  # off-peak told by an entity instead of windows
     values["done_below_w"] = float(values["done_below_w"]) if values.get("done_below_w") else None  # 0 = automatic
     if "done_after_s" in values:
         values["done_after_s"] = float(values["done_after_s"])
@@ -112,7 +121,12 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _read_reading(self, cfg: dict[str, Any]) -> DeviceReading | None:
         """Measured power, state of charge and plug state of a device, from its optional entities."""
-        measured = soc = connected = None
+        measured = soc = connected = offpeak = None
+        if cfg.get("offpeak_entity"):
+            state = self.hass.states.get(cfg["offpeak_entity"])
+            if state is not None:
+                values = [v.strip() for v in str(cfg.get("offpeak_values") or "").replace(";", ",").split(",") if v.strip()]
+                offpeak = parse_offpeak_state(state.state, values or None)
         if state := self._read_optional(cfg.get("measured_entity")):
             try:
                 measured = float(state.state) * (1000 if state.attributes.get("unit_of_measurement") == "kW" else 1)
@@ -128,9 +142,9 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 connected = True
             elif state.state in ("off", "false", "False", "disconnected", "unplugged"):
                 connected = False
-        if measured is None and soc is None and connected is None:
+        if measured is None and soc is None and connected is None and offpeak is None:
             return None
-        return DeviceReading(measured_w=measured, soc=soc, connected=connected)
+        return DeviceReading(measured_w=measured, soc=soc, connected=connected, offpeak=offpeak)
 
     def _update_readings(self) -> None:
         for device_id, cfg in self.device_cfgs.items():

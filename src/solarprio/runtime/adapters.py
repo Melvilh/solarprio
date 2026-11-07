@@ -7,7 +7,7 @@ import logging
 import urllib.request
 
 from ..models import Device, DeviceKind, DeviceReading
-from ..sources import available_from_export, available_from_production
+from ..sources import available_from_export, available_from_production, parse_offpeak_state
 from .config import ActuatorConfig, ReadingsConfig, SourceConfig
 from .mqtt_bus import MqttBus, parse_number
 
@@ -66,7 +66,7 @@ class MqttReadings:
     def __init__(self, bus: MqttBus, configs: dict[str, ReadingsConfig], stale_after_s: float) -> None:
         self._bus, self._configs, self._stale_after_s = bus, configs, stale_after_s
         for cfg in configs.values():
-            for topic in (cfg.measured_topic, cfg.soc_topic, cfg.connected_topic):
+            for topic in (cfg.measured_topic, cfg.soc_topic, cfg.connected_topic, cfg.offpeak_topic):
                 if topic:
                     bus.subscribe(topic)
 
@@ -81,7 +81,15 @@ class MqttReadings:
     def read_readings(self) -> dict[str, DeviceReading]:
         out: dict[str, DeviceReading] = {}
         for device_id, cfg in self._configs.items():
-            measured = soc = connected = None
+            measured = soc = connected = offpeak = None
+            if (raw := self._fresh(cfg.offpeak_topic)) is not None:
+                text = raw.decode(errors="ignore")
+                if cfg.field:  # JSON payload such as {"value": 2}
+                    try:
+                        text = str(parse_number(raw, cfg.field)).removesuffix(".0")
+                    except (ValueError, KeyError, TypeError):
+                        text = ""
+                offpeak = parse_offpeak_state(text, cfg.offpeak_values)
             if (raw := self._fresh(cfg.measured_topic)) is not None:
                 try:
                     measured = parse_number(raw, cfg.field) * (1000 if cfg.measured_unit == "kW" else 1)
@@ -102,8 +110,8 @@ class MqttReadings:
                 yes = {w.lower() for w in cfg.connected_values} if cfg.connected_values is not None else TRUTHY
                 no = {w.lower() for w in cfg.disconnected_values} if cfg.disconnected_values is not None else FALSY
                 connected = True if word in yes else False if word in no else None
-            if measured is not None or soc is not None or connected is not None:
-                out[device_id] = DeviceReading(measured_w=measured, soc=soc, connected=connected)
+            if measured is not None or soc is not None or connected is not None or offpeak is not None:
+                out[device_id] = DeviceReading(measured_w=measured, soc=soc, connected=connected, offpeak=offpeak)
         return out
 
 

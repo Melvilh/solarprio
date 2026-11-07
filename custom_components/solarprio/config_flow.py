@@ -109,6 +109,8 @@ def _details_schema(kind: str, values: dict[str, Any], next_priority: int) -> vo
 
     if kind != DeviceKind.BATTERY.value:
         fields[optional("offpeak")] = str
+        fields[optional("offpeak_entity")] = _entity(["binary_sensor", "sensor", "input_boolean", "switch", "select", "input_select"])
+        fields[optional("offpeak_values")] = str
         fields[optional("reset_at")] = str
         fields[required("done_below_w", 0)] = _number("W")
         fields[required("done_after_s", 120)] = _number("s")
@@ -324,11 +326,11 @@ class SolarPrioOptionsFlow(OptionsFlow):
     def _clean(self, user_input: dict[str, Any]) -> dict[str, Any]:
         """Normalise form values and validate them with the core model (raises ValueError if invalid)."""
         device = {**user_input, "kind": self._kind, "priority": int(user_input["priority"])}
-        if device.get("offpeak") and not device.get("measured_entity"):
+        if (device.get("offpeak") or device.get("offpeak_entity")) and not device.get("measured_entity"):
             raise ValueError("off-peak top-up needs a measured power entity")  # it could not tell when the device is finished
         if "phases" in device:
             device["phases"] = int(device["phases"])
-        fields = {k: v for k, v in device.items() if k in DEVICE_FIELDS}
+        fields = {k: v for k, v in device.items() if k in DEVICE_FIELDS or k == "offpeak_entity"}  # build_device reads the entity
         core = build_device({"id": "x", **fields})
         # for an EV charger the power range is derived from the electrical settings: store it for the panel
         device["power_w"], device["min_power_w"] = core.power_w, core.min_power_w

@@ -64,7 +64,8 @@ Les appareils déjà suivis dans le tableau Énergie peuvent être importés d'u
 - **Marge d'injection** : quelques dizaines de watts laissés non routés évitent que le bruit de mesure se transforme en
   soutirage. Commencez à 50-100 W et ajustez en observant votre compteur.
 - **Chauffe-eau avec routeur ESPHome** : [WATER_HEATER_EXAMPLE.md](WATER_HEATER_EXAMPLE.md) et [ESPHOME_ROUTER.md](ESPHOME_ROUTER.md).
-- **Heures creuses** (chauffe jusqu'à ce que l'appareil ne consomme plus) : [OFFPEAK.md](OFFPEAK.md).
+- **Heures creuses** (chauffe jusqu'à ce que l'appareil ne consomme plus), avec des plages horaires **ou** une entité
+  qui indique les heures creuses (la période tarifaire du Linky, par exemple) : [OFFPEAK.md](OFFPEAK.md).
 - **Plusieurs appareils, bornes à contacteur, entreprise** : [MANY_DEVICES.md](MANY_DEVICES.md).
 - **Sans Home Assistant (Docker)** : [README](../README.md#standalone-docker-no-home-assistant) et `config.example.toml`.
 

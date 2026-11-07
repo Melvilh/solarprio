@@ -74,6 +74,7 @@ class Device:
     reset_at: str | None = None  # "HH:MM" from which the device may be topped up again; default: end of the first window
     done_below_w: float | None = None  # measured power at or below which the device counts as finished; default 5 % of power_w
     done_after_s: float = 120.0  # how long it must have been on before a low measured power means "finished"
+    offpeak_signal: bool = False  # off-peak is told by an entity/topic (reading.offpeak) instead of the windows
     windows: tuple[tuple[int, int], ...] = field(init=False, default=(), repr=False, compare=False)
     reset_minute: int = field(init=False, default=0, repr=False, compare=False)
 
@@ -100,14 +101,20 @@ class Device:
             self.reset_minute = parse_hhmm(self.reset_at) if self.reset_at else (self.windows[0][1] if self.windows else 0)
         except ValueError as err:
             raise ValueError(f"{self.id}: {err}") from None
-        if self.windows and self.kind is DeviceKind.BATTERY:
-            raise ValueError(f"{self.id}: a battery cannot have off-peak windows")
+        if self.windows and self.offpeak_signal:
+            raise ValueError(f"{self.id}: use either off-peak windows or an off-peak signal, not both")
+        if self.has_schedule and self.kind is DeviceKind.BATTERY:
+            raise ValueError(f"{self.id}: a battery cannot have an off-peak schedule")
         if self.done_below_w is not None and not 0 <= self.done_below_w < self.power_w:
             raise ValueError(f"{self.id}: done_below_w must be within 0..power_w")
         if not math.isfinite(self.done_after_s) or self.done_after_s < 0:
             raise ValueError(f"{self.id}: done_after_s must be >= 0")
 
     # ---- off-peak helpers ----
+
+    @property
+    def has_schedule(self) -> bool:
+        return bool(self.windows) or self.offpeak_signal
 
     @property
     def done_threshold_w(self) -> float:
@@ -150,6 +157,7 @@ class DeviceReading:
     measured_w: float | None = None  # real power drawn (charge power for a battery)
     soc: float | None = None  # state of charge, %
     connected: bool | None = None  # EV plugged in; None = unknown, assumed connected
+    offpeak: bool | None = None  # tariff signal: True = off-peak now; None = unknown (never forces the load)
 
 
 @dataclass
@@ -160,6 +168,8 @@ class DeviceState:
     soc_blocked: bool = False  # charging stopped by the SoC limit (hysteresis memory)
     done_cycle: str | None = None  # the daily period in which the off-peak top-up found the device finished
     topup_since: float | None = None  # when the device was first seen on during its top-up
+    signal_prev: bool | None = None  # last known off-peak signal of a signal-driven device
+    signal_period: int = 0  # counts the off-peak periods seen so far (each rising edge starts a new one)
     forced: bool = False  # fed at full power by the off-peak top-up in the last step
 
     @property

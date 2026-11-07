@@ -29,6 +29,7 @@ is verified on real hardware yet: it was developed with simulated devices. To ch
 | Victron GX (Cerbo GX, Venus OS): grid power, battery charge setpoint, EV Charging Station | From docs, Simulated | [VICTRON.md](VICTRON.md), `config.victron.example.toml` |
 | ESPHome solar router (triac) with external control and watchdog | From docs; `esphome config` checked, C++ not compiled | [ESPHOME_ROUTER.md](ESPHOME_ROUTER.md), [WATER_HEATER_EXAMPLE.md](WATER_HEATER_EXAMPLE.md) |
 | Linky (French meter) read by ESPHome, as two sensors withdrawn / injected | Simulated | [WATER_HEATER_EXAMPLE.md](WATER_HEATER_EXAMPLE.md) |
+| Linky tariff period as the off-peak signal | Simulated; the default state words (`HC..`...) are not verified on a real Linky | [OFFPEAK.md](OFFPEAK.md) |
 
 ## Wanted
 
