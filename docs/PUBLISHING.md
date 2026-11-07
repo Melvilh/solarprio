@@ -76,9 +76,15 @@ request should pass. These workflows have never run: expect to fix small things,
 
 ### 6. Release
 
+Either push a tag:
+
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
 ```
+
+or, where tags cannot be pushed (for example from a restricted session), create the release on GitHub: *Releases >
+Draft a new release*, type `v0.1.0` in the tag box and choose *Create new tag on publish*, target `main`, then
+*Publish release*. The tag is created by that action and starts the same workflows.
 
 `release.yml` checks the tag equals the version in `manifest.json`, runs the release gate and creates the GitHub
 release (HACS wants a release, not only a tag). `docker.yml` pushes `ghcr.io/<owner>/<repo>`; set that package
