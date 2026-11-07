@@ -5,6 +5,8 @@ Pure logic: time is injected, nothing here touches the network or Home Assistant
 
 from __future__ import annotations
 
+from datetime import datetime
+
 from .models import Device, DeviceKind, DeviceReading, DeviceState
 
 
@@ -77,22 +79,80 @@ class Engine:
 
     def reset(self) -> None:
         """Forget all commands and timers (loads were switched off from outside the engine)."""
-        for device_id in self._states:
-            self._states[device_id] = DeviceState()
+        for device_id, old in self._states.items():
+            fresh = DeviceState()
+            fresh.done_cycle = old.done_cycle  # a device found finished tonight is not topped up again tonight
+            self._states[device_id] = fresh
         self._readings.clear()
 
-    def step(self, available_w: float, now: float) -> dict[str, float]:
+    # ---- off-peak top-up ----
+
+    def offpeak_status(self, device_id: str, local: datetime) -> str | None:
+        """None (no schedule), ``"heating"``, ``"done"`` (finished in this daily period) or ``"waiting"``."""
+        dev, state = self._devices[device_id], self._states[device_id]
+        if not dev.windows:
+            return None
+        if state.forced:
+            return "heating"
+        return "done" if state.done_cycle == dev.cycle_key(local) else "waiting"
+
+    def _top_up_candidate(self, dev: Device, state: DeviceState, reading: DeviceReading | None, local: datetime) -> bool:
+        """In an off-peak window, not finished yet, and its consumption can be checked."""
+        if not (dev.enabled and dev.windows and dev.in_offpeak(local)) or state.done_cycle == dev.cycle_key(local):
+            return False
+        if reading is None or reading.measured_w is None:
+            return False  # without a measured power we could not tell when it is finished: never force blindly
+        if dev.kind is DeviceKind.EV_CHARGER:
+            return not self._soc_blocked(dev, state, reading) and reading.connected is not False
+        return True
+
+    def _top_up(self, now: float, local: datetime | None) -> str | None:
+        """Pick the one device to feed from the grid now: the first by priority that is not finished.
+
+        A device that has been on for ``done_after_s`` and consumes (almost) nothing is finished: it is marked done
+        for this daily period and the next device in priority order takes its turn, in the same step.
+        """
+        chosen = None
+        for dev in sorted(self._devices.values(), key=lambda d: d.priority):
+            state, reading = self._states[dev.id], self._readings.get(dev.id)
+            if local is None or chosen is not None or not self._top_up_candidate(dev, state, reading, local):
+                state.topup_since = None
+                continue
+            if state.power_w > 0:
+                if state.topup_since is None:
+                    state.topup_since = now
+                elif now - state.topup_since >= dev.done_after_s and reading.measured_w <= dev.done_threshold_w:
+                    state.done_cycle, state.topup_since = dev.cycle_key(local), None
+                    continue
+            else:
+                state.topup_since = None
+            chosen = dev.id
+        return chosen
+
+    def step(self, available_w: float, now: float, local: datetime | None = None) -> dict[str, float]:
         """Allocate ``available_w`` by priority and return the new command per device.
 
         ``available_w`` is the total solar power that could feed managed loads,
         including what they already consume (see ``sources.available_*``).
+
+        ``local`` is the wall-clock time. Without it there is no off-peak top-up, which is what callers pass when the
+        measurement is lost. The device being topped up gets its full power first and that power is taken out of what
+        the others may share.
         """
-        remaining = max(available_w, 0.0)
+        top_up = self._top_up(now, local)
+        for dev_id, state in self._states.items():
+            state.forced = dev_id == top_up
+        remaining = max(available_w - (self._devices[top_up].power_w if top_up else 0.0), 0.0)
         commands: dict[str, float] = {}
 
         for dev in sorted(self._devices.values(), key=lambda d: d.priority):
             state = self._states[dev.id]
             reading = self._readings.get(dev.id)
+            if dev.id == top_up:
+                power = self._apply_timers(dev, state, dev.power_w, now)
+                self._commit(state, power, now)
+                commands[dev.id] = power
+                continue  # its power was already taken out of ``remaining``
             if dev.enabled:
                 wanted, forced_off = self._wanted(dev, state, reading, remaining)
             else:

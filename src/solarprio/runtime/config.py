@@ -160,6 +160,11 @@ def parse_config(raw: dict[str, Any]) -> Config:
             type=actuator["type"], options={k: v for k, v in actuator.items() if k != "type"}
         )
 
+    for device in devices:
+        if device.windows and not (device.id in readings and readings[device.id].measured_topic):
+            raise ConfigError(
+                f"device {device.id!r}: offpeak needs readings.measured_topic (the top-up stops when the device stops consuming)"
+            )
     if not devices:
         raise ConfigError("no [[device]] defined")
     ids = [d.id for d in devices]

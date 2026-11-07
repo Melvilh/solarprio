@@ -99,7 +99,13 @@ def _details_schema(kind: str, values: dict[str, Any], next_priority: int) -> vo
         fields[required("entity_id", vol.UNDEFINED)] = _entity(["switch", "input_boolean", "light"])
         fields[required("priority", next_priority)] = _number(None, 1, 999)
         fields[required("power_w", vol.UNDEFINED)] = _number("W", 1)
+        fields[optional("measured_entity")] = _entity(["sensor"])
 
+    if kind != DeviceKind.BATTERY.value:
+        fields[optional("offpeak")] = str
+        fields[optional("reset_at")] = str
+        fields[required("done_below_w", 0)] = _number("W")
+        fields[required("done_after_s", 120)] = _number("s")
     fields[required("min_on_s", 0)] = _number("s")
     fields[required("min_off_s", 0)] = _number("s")
     if kind in (DeviceKind.ON_OFF.value, DeviceKind.EV_CHARGER.value):
@@ -229,6 +235,8 @@ class SolarPrioOptionsFlow(OptionsFlow):
     def _clean(self, user_input: dict[str, Any]) -> dict[str, Any]:
         """Normalise form values and validate them with the core model (raises ValueError if invalid)."""
         device = {**user_input, "kind": self._kind, "priority": int(user_input["priority"])}
+        if device.get("offpeak") and not device.get("measured_entity"):
+            raise ValueError("off-peak top-up needs a measured power entity")  # it could not tell when the device is finished
         if "phases" in device:
             device["phases"] = int(device["phases"])
         fields = {k: v for k, v in device.items() if k in DEVICE_FIELDS}

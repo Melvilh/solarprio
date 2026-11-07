@@ -26,6 +26,8 @@ This software switches electrical loads. It is **not a safety device** and comes
 
 - **One ordered list** of devices; drag to change priority, takes effect immediately without switching anything off.
 - **Device types:** on/off loads, adjustable loads (dimmer, router), batteries, EV chargers.
+- **Off-peak top-up:** during your off-peak hours a device is fed from the grid until it stops consuming (a hot water
+  tank), then the next device takes its turn. See [docs/OFFPEAK.md](docs/OFFPEAK.md).
 - **Safe by default:** minimum run/rest times, start margins, hysteresis, loss-of-measurement handling,
   everything switched off on shutdown.
 - **Home Assistant integration** with a sidebar panel (English and French) or a **standalone Docker runtime**

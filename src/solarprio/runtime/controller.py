@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from datetime import datetime
 from typing import Callable
 
 from ..engine import Engine
@@ -24,9 +25,11 @@ class Controller:
         cfg: RuntimeConfig,
         clock: Callable[[], float] = time.monotonic,
         readings: ReadingsSource | None = None,
+        local_clock: Callable[[], datetime] = lambda: datetime.now().astimezone(),
     ) -> None:
         self._engine, self._source, self._actuator, self._cfg, self._clock = engine, source, actuator, cfg, clock
         self._readings = readings
+        self._local_clock = local_clock  # wall-clock time of the container (set TZ), for the off-peak windows
         self._sent: dict[str, tuple[float, float]] = {}  # device -> (power_w, sent_at)
 
     async def tick(self) -> dict[str, float]:
@@ -38,7 +41,7 @@ class Controller:
         except MeasurementUnavailable as e:
             return await self._on_measurement_lost(e, now)
 
-        commands = self._engine.step(available, now)
+        commands = self._engine.step(available, now, self._local_clock())
         log.debug("available=%.0fW commands=%s", available, commands)
         await self._send(commands, now)
         return commands

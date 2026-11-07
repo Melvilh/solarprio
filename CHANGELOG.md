@@ -25,6 +25,8 @@ First public version (alpha).
 - Export margin (`margin_w`, Home Assistant and standalone): watts deliberately left unrouted.
 - Water-heater example with a template sensor for a Linky that reports withdrawn and injected power separately
   (`docs/WATER_HEATER_EXAMPLE.md`).
+- Off-peak top-up: off-peak windows per device, fed at full power until it stops consuming, then the next device in
+  priority order (`docs/OFFPEAK.md`). Needs a measured power sensor.
 
 ### Safety behaviour
 - Undelivered commands (broker down, service error) are retried and never counted as routed power.

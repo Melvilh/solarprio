@@ -3,8 +3,32 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from enum import Enum
+
+
+def parse_hhmm(text: str) -> int:
+    """``"06:30"`` -> minutes since midnight."""
+    try:
+        hours, minutes = str(text).strip().split(":")
+        h, m = int(hours), int(minutes)
+    except ValueError:
+        raise ValueError(f"invalid time {text!r}, expected HH:MM") from None
+    if not (0 <= h < 24 and 0 <= m < 60):
+        raise ValueError(f"invalid time {text!r}, expected HH:MM")
+    return h * 60 + m
+
+
+def parse_window(text: str) -> tuple[int, int]:
+    """``"22:30-06:30"`` -> (start, end) in minutes since midnight; the end may be on the next day."""
+    parts = str(text).split("-")
+    if len(parts) != 2:
+        raise ValueError(f"invalid window {text!r}, expected HH:MM-HH:MM")
+    start, end = parse_hhmm(parts[0]), parse_hhmm(parts[1])
+    if start == end:
+        raise ValueError(f"invalid window {text!r}: start and end are the same")
+    return start, end
 
 
 class DeviceKind(str, Enum):
@@ -45,6 +69,13 @@ class Device:
     min_current_a: float = 6.0  # IEC 61851-1 minimum for AC charging; some chargers differ
     max_current_a: float = 16.0
     current_step_a: float = 1.0
+    # off-peak top-up: inside these windows the device is fed at full power until it stops consuming (it is hot / full)
+    offpeak: tuple[str, ...] = ()  # windows "HH:MM-HH:MM" (local time), may cross midnight
+    reset_at: str | None = None  # "HH:MM" from which the device may be topped up again; default: end of the first window
+    done_below_w: float | None = None  # measured power at or below which the device counts as finished; default 5 % of power_w
+    done_after_s: float = 120.0  # how long it must have been on before a low measured power means "finished"
+    windows: tuple[tuple[int, int], ...] = field(init=False, default=(), repr=False, compare=False)
+    reset_minute: int = field(init=False, default=0, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         self.kind = DeviceKind(self.kind)
@@ -63,6 +94,32 @@ class Device:
             raise ValueError(f"{self.id}: min_power_w must be within 0..power_w")
         if not 0 < self.soc_max <= 100:
             raise ValueError(f"{self.id}: soc_max must be within 0..100")
+        self.offpeak = tuple(self.offpeak)
+        try:
+            self.windows = tuple(parse_window(w) for w in self.offpeak)
+            self.reset_minute = parse_hhmm(self.reset_at) if self.reset_at else (self.windows[0][1] if self.windows else 0)
+        except ValueError as err:
+            raise ValueError(f"{self.id}: {err}") from None
+        if self.windows and self.kind is DeviceKind.BATTERY:
+            raise ValueError(f"{self.id}: a battery cannot have off-peak windows")
+        if self.done_below_w is not None and not 0 <= self.done_below_w < self.power_w:
+            raise ValueError(f"{self.id}: done_below_w must be within 0..power_w")
+        if not math.isfinite(self.done_after_s) or self.done_after_s < 0:
+            raise ValueError(f"{self.id}: done_after_s must be >= 0")
+
+    # ---- off-peak helpers ----
+
+    @property
+    def done_threshold_w(self) -> float:
+        return self.done_below_w if self.done_below_w is not None else 0.05 * self.power_w
+
+    def in_offpeak(self, local: datetime) -> bool:
+        minute = local.hour * 60 + local.minute
+        return any((s <= minute < e) if s < e else (minute >= s or minute < e) for s, e in self.windows)
+
+    def cycle_key(self, local: datetime) -> str:
+        """Identifier of the daily period containing ``local``; a device finished in one period is topped up again in the next."""
+        return (local.replace(tzinfo=None) - timedelta(minutes=self.reset_minute)).date().isoformat()
 
     # ---- EV helpers ----
 
@@ -101,6 +158,9 @@ class DeviceState:
     changed_at: float | None = None  # timestamp of the last on/off transition
     power_changed_at: float | None = None  # timestamp of the last change of commanded power
     soc_blocked: bool = False  # charging stopped by the SoC limit (hysteresis memory)
+    done_cycle: str | None = None  # the daily period in which the off-peak top-up found the device finished
+    topup_since: float | None = None  # when the device was first seen on during its top-up
+    forced: bool = False  # fed at full power by the off-peak top-up in the last step
 
     @property
     def on(self) -> bool:

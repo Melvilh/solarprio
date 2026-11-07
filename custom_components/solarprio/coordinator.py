@@ -40,6 +40,7 @@ DEVICE_FIELDS = (
     "min_on_s", "min_off_s", "start_margin_w", "stay_tolerance_w", "enabled",
     "soc_max", "soc_resume_margin", "settle_s",
     "voltage_v", "phases", "min_current_a", "max_current_a", "current_step_a",
+    "offpeak", "reset_at", "done_below_w", "done_after_s",
 )
 
 
@@ -52,6 +53,12 @@ def build_device(cfg: dict[str, Any]) -> Device:
     values["kind"] = DeviceKind(values["kind"])
     if "phases" in values:
         values["phases"] = int(values["phases"])
+    if isinstance(values.get("offpeak"), str):  # the form holds the windows as one text: "22:30-06:30, 12:30-14:30"
+        values["offpeak"] = tuple(w.strip() for w in values["offpeak"].replace(";", ",").split(",") if w.strip())
+    values["reset_at"] = values.get("reset_at") or None
+    values["done_below_w"] = float(values["done_below_w"]) if values.get("done_below_w") else None  # 0 = automatic
+    if "done_after_s" in values:
+        values["done_after_s"] = float(values["done_after_s"])
     return Device(**values)
 
 
@@ -159,7 +166,7 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self._apply(commands, now)
             return self._result("measurement_lost_off", None)
 
-        commands = self.engine.step(available, now)
+        commands = self.engine.step(available, now, dt_util.now())
         await self._apply(commands, now)
         return self._result("routing", available)
 
@@ -275,6 +282,7 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "connected": reading.connected if reading else None,
             "measured_w": reading.measured_w if reading else None,
             "current_a": None,
+            "offpeak": self.engine.offpeak_status(cfg["id"], dt_util.now()),
         }
         if cfg["kind"] == DeviceKind.EV_CHARGER.value:
             out["current_a"] = round(self.engine.device(cfg["id"]).current_for(cmd_w), 1)

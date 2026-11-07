@@ -80,7 +80,11 @@
           "min_on_s": "Durée minimale de marche",
           "min_off_s": "Durée minimale d'arrêt",
           "start_margin_w": "Surplus supplémentaire pour démarrer",
-          "stay_tolerance_w": "Soutirage toléré pour rester allumé"
+          "stay_tolerance_w": "Soutirage toléré pour rester allumé",
+          "offpeak": "Heures creuses (facultatif)",
+          "reset_at": "Rechauffer à nouveau à partir de (facultatif)",
+          "done_below_w": "Terminé quand la consommation tombe à (W, 0 = 5 % de la puissance)",
+          "done_after_s": "Vérifier « terminé » seulement après une marche de"
         },
         "data_description": {
           "entity_id": "Tout-ou-rien et proportionnel : l'entité à commuter ou régler. Batterie : l'entité number de la consigne de charge. Borne : l'entité number du courant de charge en ampères.",
@@ -90,12 +94,16 @@
           "measured_entity": "Puissance réellement consommée. Permet de libérer du surplus quand l'appareil prend moins que la consigne.",
           "connected_entity": "on = branché. Inconnu = considéré branché. Un véhicule débranché ne reçoit rien : le surplus va aux priorités suivantes.",
           "switch_entity": "Si renseigné, la borne est allumée/éteinte avec. Sinon elle est mise en pause en réglant 0 A (toutes les bornes ne l'acceptent pas).",
-          "phases": "Nombre de phases fixe. La commutation automatique 1/3 phases n'est pas prise en charge."
+          "phases": "Nombre de phases fixe. La commutation automatique 1/3 phases n'est pas prise en charge.",
+          "offpeak": "Heure locale, 24 h, séparées par des virgules, par exemple 22:30-06:30, 12:30-14:30 (une plage peut passer minuit). Dans ces plages l'appareil est alimenté à pleine puissance, quel que soit le soleil, jusqu'à ce qu'il ne consomme plus (un chauffe-eau dont le thermostat s'est ouvert est chaud) ; l'appareil suivant par ordre de priorité prend alors son tour. Demande un capteur de puissance mesurée.",
+          "reset_at": "HH:MM. Un appareil trouvé terminé est de nouveau alimenté à partir de cette heure. Par défaut : la fin de la première plage, donc une fois par jour.",
+          "done_below_w": "Puissance mesurée en dessous de laquelle l'appareil est considéré comme terminé.",
+          "done_after_s": "Secondes de marche avant qu'une faible consommation signifie terminé (capteurs lents, appel de courant)."
         }
       }
     },
     "error": {
-      "invalid_device": "Appareil invalide : la puissance doit être > 0 et la puissance minimale ne peut pas la dépasser."
+      "invalid_device": "Appareil invalide : la puissance doit être > 0 et la puissance minimale ne peut pas la dépasser. Les heures creuses doivent ressembler à 22:30-06:30 et demandent un capteur de puissance mesurée ; une batterie ne peut pas en avoir."
     }
   },
   "selector": {

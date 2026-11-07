@@ -80,7 +80,11 @@
           "min_on_s": "Minimum run time",
           "min_off_s": "Minimum rest time",
           "start_margin_w": "Extra surplus needed to start",
-          "stay_tolerance_w": "Grid import tolerated to keep running"
+          "stay_tolerance_w": "Grid import tolerated to keep running",
+          "offpeak": "Off-peak windows (optional)",
+          "reset_at": "Top up again from (optional)",
+          "done_below_w": "Finished when consumption falls to (W, 0 = 5 % of the power)",
+          "done_after_s": "Check for finished only after it has run for"
         },
         "data_description": {
           "entity_id": "On/off and proportional: the entity to switch or set. Battery: the number entity of the charge setpoint. EV charger: the number entity of the charging current in amps.",
@@ -90,12 +94,16 @@
           "measured_entity": "Real power drawn. Lets the engine free surplus when the device takes less than commanded.",
           "connected_entity": "on = plugged in. Unknown is treated as plugged in. An unplugged car gets nothing, so the surplus goes to lower priorities.",
           "switch_entity": "If set, the charger is switched on/off with it. Otherwise it is paused by setting 0 A (not every charger accepts that).",
-          "phases": "Fixed number of phases. Automatic 1/3 phase switching is not supported."
+          "phases": "Fixed number of phases. Automatic 1/3 phase switching is not supported.",
+          "offpeak": "Local time, 24 h, comma separated, for example 22:30-06:30, 12:30-14:30 (a window may cross midnight). In these windows the device is fed at full power, whatever the sun does, until it stops consuming (a water heater whose thermostat opened is hot); then the next device in priority order takes its turn. Needs a measured power sensor.",
+          "reset_at": "HH:MM. A device found finished is topped up again from this time. Default: the end of the first window, so once a day.",
+          "done_below_w": "Measured power at or below which the device counts as finished.",
+          "done_after_s": "Seconds the device must have been on before a low consumption means finished (slow sensors, inrush)."
         }
       }
     },
     "error": {
-      "invalid_device": "Invalid device: power must be > 0 and minimum power cannot exceed it."
+      "invalid_device": "Invalid device: power must be > 0 and minimum power cannot exceed it. Off-peak windows must look like 22:30-06:30 and need a measured power sensor; a battery cannot have them."
     }
   },
   "selector": {

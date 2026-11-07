@@ -13,6 +13,7 @@ const T = {
     max: "max",
     soc: "SoC",
     unplugged: "unplugged",
+    offpeak: { heating: "off-peak: heating", done: "off-peak: finished", waiting: "off-peak: waiting" },
     disabled: "Disabled",
     error: "Could not save, order restored.",
     notConfigured: "solarprio is not set up.",
@@ -40,6 +41,7 @@ const T = {
     max: "max",
     soc: "Niveau",
     unplugged: "débranché",
+    offpeak: { heating: "heures creuses : chauffe", done: "heures creuses : terminé", waiting: "heures creuses : en attente" },
     disabled: "Désactivé",
     error: "Enregistrement impossible, ordre restauré.",
     notConfigured: "solarprio n'est pas configuré.",
@@ -380,6 +382,7 @@ class SolarPrioPanel extends HTMLElement {
       row.classList.toggle("off", !d.enabled);
       const parts = [d.entity_id, d.enabled ? (on ? t.on : t.off) : t.disabled];
       if (d.connected === false) parts.push(t.unplugged);
+      if (d.offpeak) parts.push(t.offpeak[d.offpeak]);
       if (d.current_a > 0) parts.push(`${d.current_a} A`);
       if (d.soc != null) parts.push(`${t.soc} ${Math.round(d.soc)} %`);
       parts.push(`${t.max} ${fmtW(d.power_w)}`);
