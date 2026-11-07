@@ -8,7 +8,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$(mktemp -d)
 PY="$ROOT/.venv-ha/bin/python"
 cd "${E2E_OUT:-$WORK}"
-for SCENARIO in basic ev; do
+for SCENARIO in basic ev edit; do
   CONFIG="$WORK/config-$SCENARIO"
   mkdir -p "$CONFIG/custom_components"
   ln -s "$ROOT/custom_components/solarprio" "$CONFIG/custom_components/solarprio"
@@ -19,8 +19,12 @@ for SCENARIO in basic ev; do
     [ "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8123/ || true)" = "200" ] && break
     sleep 1
   done
-  "$PY" "$ROOT/tests_e2e/setup_ha.py" "$SCENARIO" > auth.json
-  if [ "$SCENARIO" = basic ]; then TEST=browser_test.py; else TEST=browser_test_ev.py; fi
+  case "$SCENARIO" in
+    basic) SETUP=basic; TEST=browser_test.py ;;
+    ev) SETUP=ev; TEST=browser_test_ev.py ;;
+    edit) SETUP=basic; TEST=browser_test_edit.py ;;
+  esac
+  "$PY" "$ROOT/tests_e2e/setup_ha.py" "$SETUP" > auth.json
   echo "=== scenario: $SCENARIO ==="
   "$PY" "$ROOT/tests_e2e/$TEST"
   kill $HA_PID 2>/dev/null || true

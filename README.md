@@ -25,6 +25,7 @@ This software switches electrical loads. It is **not a safety device** and comes
 ## Features
 
 - **One ordered list** of devices; drag to change priority, takes effect immediately without switching anything off.
+  Add, edit and delete devices, and change the measurement settings, from the same panel.
 - **Device types:** on/off loads, adjustable loads (dimmer, router), batteries, EV chargers.
 - **Many devices:** any number, started together when the surplus allows; setup pre-filled from the Home Assistant Energy
   dashboard, with import and copy of devices. See [docs/MANY_DEVICES.md](docs/MANY_DEVICES.md).

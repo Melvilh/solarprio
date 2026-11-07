@@ -3,7 +3,19 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
-## [0.1.0] - Unreleased
+## [0.1.1] - Unreleased
+
+### Added
+- Add, edit, delete devices and edit the measurement and safety settings from the sidebar panel (the forms come from the
+  same field definitions as Home Assistant's own form, with the labels and help texts of the integration's translations).
+- The panel says why a measurement was lost (which sensor, how old).
+
+### Changed
+- The panel stays in place when settings are saved (the integration reloads behind it), and is removed only when the
+  integration is deleted or disabled.
+- Device values are checked against the field ranges and choices whatever the way they are entered.
+
+## [0.1.0] - 2026-11-07
 
 First public version (alpha).
 

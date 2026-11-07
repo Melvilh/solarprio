@@ -41,10 +41,22 @@ commandée avec une lampe ou un petit radiateur), pas votre chauffe-eau.
 - Un capteur de **puissance mesurée** (facultatif, recommandé) permet de libérer le surplus quand l'appareil consomme
   moins que prévu.
 
+Vous pouvez aussi tout faire **depuis le panneau solarprio** de la barre latérale : *Ajouter un appareil*, le crayon pour
+modifier, la corbeille pour supprimer, et *Réglages* pour la mesure et la sécurité (période de contrôle, délai avant
+« mesure perdue », marge d'injection…). Chaque enregistrement recharge l'intégration : les charges sont éteintes un
+instant, le temps d'appliquer les nouveaux réglages.
+
 Les appareils déjà suivis dans le tableau Énergie peuvent être importés d'un coup (*Importer des appareils du tableau
 Énergie*) ; *Copier un appareil* évite de tout ressaisir pour plusieurs appareils identiques.
 
 ## 4. Observer
+
+Si le panneau affiche **« Mesure perdue : appareils éteints »**, solarprio n'a pas pu lire le capteur de mesure et, par
+sécurité, il a éteint les appareils. La ligne en dessous donne la raison exacte : capteur `indisponible`, **pas de mise à
+jour depuis plus de N secondes** (réglage « Mesure considérée comme perdue après », 60 s par défaut ; un capteur qui
+ne change pas de valeur peut sembler « vieux »), ou valeur non numérique. Vérifiez ce capteur dans *Outils de
+développement > États*, puis ajustez le délai dans *Réglages* si besoin.
+
 
 - Le panneau **solarprio** apparaît dans la barre latérale (administrateurs). Glissez-déposez les lignes pour changer
   la priorité : rien n'est éteint par ce geste.

@@ -42,16 +42,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        async_remove_panel(hass)
+        if entry.disabled_by is not None or hass.is_stopping:  # a plain reload keeps the panel (and the page open on it)
+            async_remove_panel(hass)
         coordinator: SolarPrioCoordinator = hass.data[DOMAIN].pop(entry.entry_id)
         await coordinator.async_shutdown_loads()
     return unloaded
 
 
+async def async_remove_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    async_remove_panel(hass)
+
+
 async def _async_options_updated(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Apply priority/enabled changes live (panel drag and drop); reload for anything else."""
     coordinator: SolarPrioCoordinator = hass.data[DOMAIN][entry.entry_id]
-    if coordinator.apply_device_options(entry.options.get(CONF_DEVICES, [])):
-        await coordinator.async_request_refresh()
-    else:
+    # a changed measurement/safety setting, or a device added, removed or edited, needs a reload
+    if coordinator.settings_changed(entry.data) or not coordinator.apply_device_options(entry.options.get(CONF_DEVICES, [])):
         await hass.config_entries.async_reload(entry.entry_id)
+    else:
+        await coordinator.async_request_refresh()

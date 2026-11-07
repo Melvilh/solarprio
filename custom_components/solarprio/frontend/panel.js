@@ -7,7 +7,25 @@ const T = {
     available: "Available",
     routed: "Routed",
     hint: "Drag the handle (or use the arrows) to set the order. The top device is served first.",
-    empty: "No device yet. Add some in Settings > Devices & services > solarprio > Configure.",
+    empty: "No device yet. Use “Add a device” above.",
+    add: "Add a device",
+    edit: "Edit",
+    remove: "Delete",
+    settingsBtn: "Settings",
+    addTitle: "Add a device",
+    editTitle: "Edit a device",
+    settingsTitle: "Measurement and safety settings",
+    chooseType: "What do you want to add?",
+    save: "Save",
+    cancel: "Cancel",
+    confirmRemove: "Delete “{name}”? Its load is switched off.",
+    required: "Required",
+    saveFailed: "Not saved",
+    loadFailed: "Could not open the form.",
+    saved: "Saved. Loads are switched off for a moment while the new settings are applied.",
+    removed: "Deleted.",
+    opt: { export: "Grid power (one sensor)", production: "Production and consumption", off: "Switch the loads off",
+           hold: "Keep the current state", watts: "Watts", percent: "Percent" },
     on: "on",
     off: "off",
     max: "max",
@@ -35,7 +53,25 @@ const T = {
     available: "Disponible",
     routed: "Routé",
     hint: "Glissez la poignée (ou utilisez les flèches) pour définir l'ordre. L'appareil du haut est servi en premier.",
-    empty: "Aucun appareil. Ajoutez-en dans Paramètres > Appareils et services > solarprio > Configurer.",
+    empty: "Aucun appareil. Utilisez « Ajouter un appareil » ci-dessus.",
+    add: "Ajouter un appareil",
+    edit: "Modifier",
+    remove: "Supprimer",
+    settingsBtn: "Réglages",
+    addTitle: "Ajouter un appareil",
+    editTitle: "Modifier un appareil",
+    settingsTitle: "Réglages de la mesure et de la sécurité",
+    chooseType: "Que voulez-vous ajouter ?",
+    save: "Enregistrer",
+    cancel: "Annuler",
+    confirmRemove: "Supprimer « {name} » ? Sa charge est éteinte.",
+    required: "Obligatoire",
+    saveFailed: "Non enregistré",
+    loadFailed: "Impossible d'ouvrir le formulaire.",
+    saved: "Enregistré. Les charges sont éteintes un instant, le temps d'appliquer les nouveaux réglages.",
+    removed: "Supprimé.",
+    opt: { export: "Puissance réseau (un capteur)", production: "Production et consommation", off: "Éteindre les charges",
+           hold: "Garder l'état actuel", watts: "Watts", percent: "Pourcentage" },
     on: "marche",
     off: "arrêt",
     max: "max",
@@ -103,11 +139,45 @@ const STYLE = `
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--error-color, #db4437);
            color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 14px; }
   .empty { text-align: center; color: var(--secondary-text-color); padding: 24px 8px; }
-  @media (max-width: 520px) { .power { display: none; } .summary .value { font-size: 20px; } }
+  .status .detail { display: block; font-size: 12px; margin-top: 4px; word-break: break-all; }
+  .toast.ok { background: var(--success-color, #2e7d32); }
+  header .btn { white-space: nowrap; }
+  button.btn { border: 1px solid var(--divider-color, #bbb); background: var(--card-background-color, #fff); color: var(--primary-text-color);
+               border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer; font-family: inherit; }
+  button.btn.primary { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: var(--primary-color); }
+  button.btn.danger { background: var(--error-color, #db4437); color: #fff; border-color: var(--error-color, #db4437); }
+  button.btn:disabled { opacity: .5; cursor: default; }
+  button.btn:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+  button.icon svg { display: block; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: flex-start; justify-content: center;
+             padding: 24px 12px; overflow: auto; z-index: 10; }
+  .dialog { background: var(--card-background-color, #fff); color: var(--primary-text-color); border-radius: 12px; padding: 20px;
+            width: 100%; max-width: 560px; box-sizing: border-box; box-shadow: 0 8px 32px rgba(0,0,0,.4); }
+  .dialog h2 { margin: 0 0 12px; font-size: 20px; font-weight: 400; }
+  .dialog button.kind { display: block; width: 100%; text-align: left; margin-bottom: 8px; padding: 12px 14px; }
+  .field { margin-bottom: 14px; }
+  .field[hidden] { display: none; }
+  .field .lab { display: block; font-size: 13px; color: var(--secondary-text-color); margin-bottom: 4px; }
+  .field input[type=text], .field input[type=number], .field select {
+    width: 100%; box-sizing: border-box; padding: 9px 10px; font-size: 15px; font-family: inherit; color: var(--primary-text-color);
+    background: var(--secondary-background-color, #f5f5f5); border: 1px solid var(--divider-color, #bbb); border-radius: 6px; }
+  .field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 1px; }
+  .field .help { font-size: 12px; color: var(--secondary-text-color); margin-top: 4px; }
+  .field .unit { font-size: 12px; color: var(--secondary-text-color); margin-left: 6px; }
+  .field.invalid input, .field.invalid select { border-color: var(--error-color, #db4437); }
+  .field .err { color: var(--error-color, #db4437); font-size: 12px; margin-top: 4px; }
+  .form-error { color: var(--error-color, #db4437); font-size: 14px; min-height: 18px; margin: 4px 0 8px; word-break: break-word; }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+  @media (max-width: 520px) { .power { display: none; } .summary .value { font-size: 20px; } header { flex-wrap: wrap; } }
 `;
 
 const GRIP =
   '<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 3h2v2H9V3m4 0h2v2h-2V3M9 7h2v2H9V7m4 0h2v2h-2V7m-4 4h2v2H9v-2m4 0h2v2h-2v-2m-4 4h2v2H9v-2m4 0h2v2h-2v-2m-4 4h2v2H9v-2m4 0h2v2h-2v-2Z"/></svg>';
+
+const PENCIL =
+  '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>';
+const TRASH =
+  '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14M6 19a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6v12Z"/></svg>';
 
 const fmtW = (w) => (w == null ? "-" : `${Math.round(w)} W`);
 
@@ -118,6 +188,8 @@ class SolarPrioPanel extends HTMLElement {
     this._key = null;
     this._notConfigured = false;
     this._busy = false; // saving or dragging: do not overwrite local order with a poll
+    this._dialogEl = null; // the open add/edit/settings dialog; kept when the list is rebuilt
+    this._misses = 0; // consecutive "not configured" answers (the entry reloads for a second after a save)
     this._timer = null;
     this._drag = null;
     this.attachShadow({ mode: "open" });
@@ -142,6 +214,10 @@ class SolarPrioPanel extends HTMLElement {
     clearInterval(this._timer);
   }
 
+  get _lang() {
+    return (this._hass && this._hass.language) || "en";
+  }
+
   get _t() {
     const lang = (this._hass && (this._hass.language || "en")).slice(0, 2);
     return T[lang] || T.en;
@@ -156,20 +232,23 @@ class SolarPrioPanel extends HTMLElement {
     try {
       this._state = await this._call({ type: "solarprio/state" });
       this._notConfigured = false;
+      this._misses = 0;
     } catch (err) {
-      if (err && err.code === "not_configured") this._notConfigured = true;
-      else return;
+      if (!(err && err.code === "not_configured")) return;
+      // right after a save the entry reloads and answers "not configured" for a moment: wait before saying so
+      if (++this._misses < 4 && this._state) return;
+      this._notConfigured = true;
     }
     if (!this._busy) this._render();
   }
 
-  _toast(message) {
+  _toast(message, ok = false) {
     const el = document.createElement("div");
-    el.className = "toast";
+    el.className = ok ? "toast ok" : "toast";
     el.setAttribute("role", "alert");
     el.textContent = message;
     this.shadowRoot.appendChild(el);
-    setTimeout(() => el.remove(), 4000);
+    setTimeout(() => el.remove(), ok ? 6000 : 4000);
   }
 
   // ---- actions -------------------------------------------------------
@@ -335,6 +414,8 @@ class SolarPrioPanel extends HTMLElement {
               <button class="icon up" data-index="${i}" aria-label="${t.up}" title="${t.up}" ${i === 0 ? "disabled" : ""}>▲</button>
               <button class="icon down" data-index="${i}" aria-label="${t.down}" title="${t.down}" ${i === s.devices.length - 1 ? "disabled" : ""}>▼</button>
             </div>
+            <button class="icon edit" data-index="${i}" aria-label="${t.edit} ${esc(d.name)}" title="${t.edit}">${PENCIL}</button>
+            <button class="icon remove" data-index="${i}" aria-label="${t.remove} ${esc(d.name)}" title="${t.remove}">${TRASH}</button>
             <label class="switch"><input type="checkbox" class="dev-enabled" data-id="${esc(d.id)}" aria-label="${t.enable} ${esc(d.name)}"><span></span></label>
           </li>`,
         )
@@ -353,7 +434,12 @@ class SolarPrioPanel extends HTMLElement {
         ${s.devices.length ? `<ul>${rows}</ul>` : `<div class="card empty">${t.empty}</div>`}`;
     }
 
-    root.innerHTML = `<style>${STYLE}</style><div class="wrap"><header><h1>${t.title}</h1></header>${body}</div>`;
+    const actions =
+      s && !this._notConfigured
+        ? `<button class="btn" id="btn-settings">${t.settingsBtn}</button><button class="btn primary" id="btn-add">${t.add}</button>`
+        : "";
+    root.innerHTML = `<style>${STYLE}</style><div class="wrap"><header><h1>${t.title}</h1>${actions}</header>${body}</div>`;
+    if (this._dialogEl) root.appendChild(this._dialogEl); // a dialog stays open when the list behind it is rebuilt
     this._bind();
     this._patch();
   }
@@ -370,8 +456,24 @@ class SolarPrioPanel extends HTMLElement {
     set(root.getElementById("available"), fmtW(s.available_w));
     set(root.getElementById("routed"), fmtW(s.routed_w));
     const status = root.getElementById("status");
-    set(status, t.status[s.status] || s.status);
+    const label = t.status[s.status] || s.status;
+    if (status.firstChild && status.firstChild.nodeType === 3) {
+      if (status.firstChild.textContent !== label) status.firstChild.textContent = label;
+    } else {
+      status.insertBefore(document.createTextNode(label), status.firstChild);
+    }
     status.classList.toggle("bad", s.status.startsWith("measurement_lost"));
+    let detail = status.querySelector(".detail");
+    if (s.detail) {
+      if (!detail) {
+        detail = document.createElement("span");
+        detail.className = "detail";
+        status.appendChild(detail);
+      }
+      if (detail.textContent !== s.detail) detail.textContent = s.detail;
+    } else if (detail) {
+      detail.remove();
+    }
     const routing = root.getElementById("routing");
     if (routing.checked !== s.routing_enabled) routing.checked = s.routing_enabled;
 
@@ -413,6 +515,240 @@ class SolarPrioPanel extends HTMLElement {
     root.querySelectorAll(".dev-enabled").forEach((c) => c.addEventListener("change", () => this._setEnabled(c.dataset.id, c.checked)));
     const routing = root.getElementById("routing");
     if (routing) routing.addEventListener("change", () => this._setRouting(routing.checked));
+    const add = root.getElementById("btn-add");
+    if (add) add.addEventListener("click", () => this._openAdd());
+    const settings = root.getElementById("btn-settings");
+    if (settings) settings.addEventListener("click", () => this._openSettings());
+    root.querySelectorAll("button.edit").forEach((b) =>
+      b.addEventListener("click", () => {
+        const d = this._state.devices[Number(b.dataset.index)];
+        this._openForm(d.kind, d.id);
+      }),
+    );
+    root.querySelectorAll("button.remove").forEach((b) =>
+      b.addEventListener("click", () => this._confirmRemove(this._state.devices[Number(b.dataset.index)])),
+    );
+  }
+
+  // ---- dialogs: add, edit, remove, settings -----------------------------
+
+  _openDialog(title, bodyHtml) {
+    this._closeDialog(false);
+    const el = document.createElement("div");
+    el.className = "overlay";
+    el.innerHTML = `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title"><h2 id="dlg-title">${esc(title)}</h2>${bodyHtml}</div>`;
+    el.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        this._closeDialog();
+      }
+    });
+    this._returnFocus = this.shadowRoot.activeElement;
+    this._dialogEl = el;
+    this.shadowRoot.appendChild(el);
+    return el;
+  }
+
+  _closeDialog(restoreFocus = true) {
+    if (this._dialogEl) this._dialogEl.remove();
+    this._dialogEl = null;
+    if (restoreFocus && this._returnFocus && this._returnFocus.isConnected) this._returnFocus.focus();
+  }
+
+  _afterChange(message) {
+    this._toast(message, true);
+    [1500, 4000].forEach((ms) => setTimeout(() => this._refresh(), ms)); // the entry reloads: look again shortly
+  }
+
+  async _openAdd() {
+    const t = this._t;
+    let form;
+    try {
+      form = await this._call({ type: "solarprio/device_form", kind: "on_off", language: this._lang });
+    } catch (_) {
+      this._toast(t.loadFailed);
+      return;
+    }
+    const kinds = Object.entries(form.kinds)
+      .map(([k, label]) => `<button class="btn kind" data-kind="${esc(k)}">${esc(label)}</button>`)
+      .join("");
+    const el = this._openDialog(t.addTitle, `<p class="hint">${t.chooseType}</p>${kinds}<div class="actions"><button class="btn cancel">${t.cancel}</button></div>`);
+    el.querySelectorAll(".kind").forEach((b) => b.addEventListener("click", () => this._openForm(b.dataset.kind, null)));
+    el.querySelector(".cancel").addEventListener("click", () => this._closeDialog());
+    el.querySelector(".kind").focus();
+  }
+
+  async _openForm(kind, deviceId) {
+    const t = this._t;
+    let form;
+    try {
+      form = await this._call({ type: "solarprio/device_form", kind, device_id: deviceId || undefined, language: this._lang });
+    } catch (_) {
+      this._toast(t.loadFailed);
+      return;
+    }
+    this._formDialog({
+      title: `${deviceId ? t.editTitle : t.addTitle} · ${form.kinds[kind] || kind}`,
+      fields: form.fields,
+      values: deviceId ? form.values : {},
+      save: (values) => this._call({ type: "solarprio/device_save", kind, device_id: deviceId || undefined, values }),
+      done: t.saved,
+    });
+  }
+
+  async _openSettings() {
+    const t = this._t;
+    let form;
+    try {
+      form = await this._call({ type: "solarprio/settings_form", language: this._lang });
+    } catch (_) {
+      this._toast(t.loadFailed);
+      return;
+    }
+    this._formDialog({
+      title: t.settingsTitle,
+      fields: form.fields,
+      values: form.values,
+      save: (values) => this._call({ type: "solarprio/settings_save", values }),
+      done: t.saved,
+    });
+  }
+
+  _confirmRemove(device) {
+    const t = this._t;
+    const el = this._openDialog(
+      t.remove,
+      `<p>${esc(t.confirmRemove.replace("{name}", device.name))}</p><div class="actions"><button class="btn cancel">${t.cancel}</button><button class="btn danger ok">${t.remove}</button></div>`,
+    );
+    el.querySelector(".cancel").addEventListener("click", () => this._closeDialog());
+    el.querySelector(".ok").addEventListener("click", async () => {
+      try {
+        await this._call({ type: "solarprio/device_remove", device_id: device.id });
+      } catch (_) {
+        this._toast(t.error);
+        return;
+      }
+      this._closeDialog(false);
+      this._afterChange(t.removed);
+    });
+    el.querySelector(".cancel").focus();
+  }
+
+  /** A form generated from the field definitions of the server (the same ones as Home Assistant's own form). */
+  _formDialog({ title, fields, values, save, done }) {
+    const t = this._t;
+    const entities = Object.keys((this._hass && this._hass.states) || {});
+    const control = (f, v) => {
+      const id = `f-${f.name}`;
+      if (f.type === "select") {
+        const options = f.options
+          .map((o) => `<option value="${esc(o)}" ${String(v) === o ? "selected" : ""}>${esc(t.opt[o] || o)}</option>`)
+          .join("");
+        return `<select id="${id}">${options}</select>`;
+      }
+      if (f.type === "boolean") {
+        return `<label class="switch" style="display:inline-block"><input type="checkbox" id="${id}" ${v ? "checked" : ""}><span></span></label>`;
+      }
+      if (f.type === "number") {
+        const attrs = `${f.min != null ? ` min="${f.min}"` : ""}${f.max != null ? ` max="${f.max}"` : ""}`;
+        return `<input type="number" step="any" id="${id}"${attrs} value="${esc(v ?? "")}">${f.unit ? `<span class="unit">${esc(f.unit)}</span>` : ""}`;
+      }
+      if (f.type === "entity") {
+        const prefix = f.domains.map((d) => `${d}.`);
+        const list = entities
+          .filter((e) => prefix.some((p) => e.startsWith(p)))
+          .sort()
+          .map((e) => {
+            const st = this._hass.states[e];
+            const name = (st && st.attributes && st.attributes.friendly_name) || "";
+            return `<option value="${esc(e)}" label="${esc(name)}"></option>`;
+          })
+          .join("");
+        return `<input type="text" id="${id}" list="dl-${f.name}" autocomplete="off" spellcheck="false" placeholder="${esc(f.domains[0])}.…" value="${esc(v ?? "")}"><datalist id="dl-${f.name}">${list}</datalist>`;
+      }
+      return `<input type="text" id="${id}" autocomplete="off" value="${esc(v ?? "")}">`;
+    };
+    const rows = fields
+      .map((f) => {
+        const v = values[f.name] ?? f.default ?? "";
+        const show = f.show_if ? ` data-show-name="${esc(f.show_if[0])}" data-show-value="${esc(f.show_if[1])}"` : "";
+        return `<div class="field" data-field="${esc(f.name)}"${show}>
+          <label class="lab" for="f-${esc(f.name)}">${esc(f.label)}${f.required ? " *" : ""}</label>
+          ${control(f, v)}
+          ${f.description ? `<div class="help">${esc(f.description)}</div>` : ""}
+          <div class="err" role="alert"></div>
+        </div>`;
+      })
+      .join("");
+    const el = this._openDialog(
+      title,
+      `<form novalidate>${rows}<div class="form-error" role="alert"></div><div class="actions"><button type="button" class="btn cancel">${t.cancel}</button><button type="submit" class="btn primary">${t.save}</button></div></form>`,
+    );
+    const form = el.querySelector("form");
+    const input = (name) => el.querySelector(`#f-${CSS.escape(name)}`);
+    const wrap = (name) => el.querySelector(`[data-field="${CSS.escape(name)}"]`);
+    const current = (name) => {
+      const i = input(name);
+      return i ? (i.type === "checkbox" ? i.checked : i.value) : undefined;
+    };
+    const visibility = () =>
+      el.querySelectorAll("[data-show-name]").forEach((w) => {
+        w.hidden = String(current(w.dataset.showName)) !== w.dataset.showValue;
+      });
+    form.addEventListener("change", visibility);
+    visibility();
+
+    el.querySelector(".cancel").addEventListener("click", () => this._closeDialog());
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      const out = {};
+      let first = null;
+      fields.forEach((f) => {
+        const w = wrap(f.name);
+        w.classList.remove("invalid");
+        w.querySelector(".err").textContent = "";
+        if (w.hidden) return;
+        const i = input(f.name);
+        let v;
+        if (f.type === "boolean") v = i.checked;
+        else if (f.type === "number") v = i.value === "" ? undefined : Number(i.value);
+        else v = i.value.trim();
+        if ((v === undefined || v === "") && f.required) {
+          w.classList.add("invalid");
+          w.querySelector(".err").textContent = t.required;
+          first = first || i;
+        } else if (v !== undefined && v !== "") {
+          out[f.name] = v;
+        }
+      });
+      const errBox = el.querySelector(".form-error");
+      errBox.textContent = "";
+      if (first) {
+        first.focus();
+        return;
+      }
+      const button = form.querySelector("button[type=submit]");
+      button.disabled = true;
+      this._busy = true;
+      try {
+        await save(out);
+      } catch (err) {
+        errBox.textContent = `${t.saveFailed}: ${(err && err.message) || (err && err.code) || ""}`;
+        const bad = err && err.code === "invalid_settings" && wrap(err.message);
+        if (bad) {
+          bad.classList.add("invalid");
+          input(err.message).focus();
+        }
+        button.disabled = false;
+        return;
+      } finally {
+        this._busy = false;
+      }
+      this._closeDialog(false);
+      this._afterChange(done);
+    });
+    const firstInput = el.querySelector("input, select");
+    if (firstInput) firstInput.focus();
   }
 }
 

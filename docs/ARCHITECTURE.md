@@ -74,6 +74,10 @@ container. So the engine knows nothing about Home Assistant.
   the entry when something else changed, so a drag and drop never switches loads off.
   Drag and drop uses pointer events (mouse and touch) with arrow buttons as the keyboard path.
   The panel patches values in place and rebuilds the list only when devices or their order change.
+- Editing from the panel: `solarprio/device_form`, `device_save`, `device_remove`, `settings_form`, `settings_save`. The fields
+  come from `forms.py`, the same definitions the options flow uses; labels and help texts come from the integration's
+  translations in the user's language. Saving updates the config entry and the entry reloads (all loads are switched off for
+  a moment); the panel is kept registered across that reload.
 - Entities: `Routing` switch (restored across restarts), available / routed power, status,
   one command sensor per device.
 

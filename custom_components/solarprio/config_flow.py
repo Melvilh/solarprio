@@ -8,7 +8,6 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
 from homeassistant.core import callback
 from homeassistant.helpers import selector
-from homeassistant.util import slugify
 
 from .const import (
     CONF_CONSUMPTION_ENTITY,
@@ -30,9 +29,9 @@ from .const import (
     ON_STALE_HOLD,
     ON_STALE_OFF,
 )
-from .coordinator import DEVICE_FIELDS, build_device
 from .core import DeviceKind
 from .energy import EnergyDashboard, async_read_energy_dashboard
+from .forms import clean_device, device_fields, merge_device
 
 SENSOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
 
@@ -57,69 +56,28 @@ def _suggest(entity_id: str | None) -> dict[str, Any] | None:
 
 
 def _details_schema(kind: str, values: dict[str, Any], next_priority: int) -> vol.Schema:
-    """Form fields for one device type. Optional entities use suggested values so they can be cleared."""
+    """The form of one device type, built from the shared field specification (forms.py).
 
-    def default(key: str, fallback: Any) -> Any:
-        return values.get(key, fallback)
-
-    def required(key: str, fallback: Any) -> vol.Required:
-        return vol.Required(key, default=default(key, fallback))
-
-    def optional(key: str) -> vol.Optional:
-        suggested = values.get(key)
-        return vol.Optional(key, description={"suggested_value": suggested} if suggested else None)
-
-    fields: dict[Any, Any] = {required("name", ""): str}
-
-    if kind == DeviceKind.EV_CHARGER.value:
-        fields[required("entity_id", vol.UNDEFINED)] = _entity(["number", "input_number"])  # charging current, A
-        fields[optional("switch_entity")] = _entity(["switch", "input_boolean"])
-        fields[required("priority", next_priority)] = _number(None, 1, 999)
-        fields[required("phases", "1")] = _select(["1", "3"])
-        fields[required("voltage_v", 230)] = _number("V", 100, 480)
-        fields[required("min_current_a", 6)] = _number("A", 1, 80)
-        fields[required("max_current_a", 16)] = _number("A", 1, 80)
-        fields[required("current_step_a", 1)] = _number("A", 0.1, 10)
-        fields[optional("connected_entity")] = _entity(["binary_sensor", "sensor", "switch", "input_boolean"])
-        fields[optional("soc_entity")] = _entity(["sensor", "number", "input_number"])
-        fields[required("soc_max", 100)] = _number("%", 1, 100)
-        fields[optional("measured_entity")] = _entity(["sensor"])
-    elif kind == DeviceKind.BATTERY.value:
-        fields[required("entity_id", vol.UNDEFINED)] = _entity(["number", "input_number"])  # charge setpoint
-        fields[required("priority", next_priority)] = _number(None, 1, 999)
-        fields[required("power_w", vol.UNDEFINED)] = _number("W", 1)
-        fields[required("min_power_w", 0)] = _number("W")
-        fields[required("scale", "watts")] = _select(["watts", "percent"])
-        fields[optional("soc_entity")] = _entity(["sensor", "number", "input_number"])
-        fields[required("soc_max", 100)] = _number("%", 1, 100)
-        fields[required("soc_resume_margin", 2)] = _number("%", 0, 50)
-        fields[optional("measured_entity")] = _entity(["sensor"])
-    elif kind == DeviceKind.PROPORTIONAL.value:
-        fields[required("entity_id", vol.UNDEFINED)] = _entity(["light", "number", "input_number"])
-        fields[required("priority", next_priority)] = _number(None, 1, 999)
-        fields[required("power_w", vol.UNDEFINED)] = _number("W", 1)
-        fields[required("min_power_w", 0)] = _number("W")
-        fields[required("scale", "percent")] = _select(["percent", "watts"])
-        fields[optional("measured_entity")] = _entity(["sensor"])
-    else:  # on_off
-        fields[required("entity_id", vol.UNDEFINED)] = _entity(["switch", "input_boolean", "light"])
-        fields[required("priority", next_priority)] = _number(None, 1, 999)
-        fields[required("power_w", vol.UNDEFINED)] = _number("W", 1)
-        fields[optional("measured_entity")] = _entity(["sensor"])
-
-    if kind != DeviceKind.BATTERY.value:
-        fields[optional("offpeak")] = str
-        fields[optional("offpeak_entity")] = _entity(["binary_sensor", "sensor", "input_boolean", "switch", "select", "input_select"])
-        fields[optional("offpeak_values")] = str
-        fields[optional("reset_at")] = str
-        fields[required("done_below_w", 0)] = _number("W")
-        fields[required("done_after_s", 120)] = _number("s")
-    fields[required("min_on_s", 0)] = _number("s")
-    fields[required("min_off_s", 0)] = _number("s")
-    if kind in (DeviceKind.ON_OFF.value, DeviceKind.EV_CHARGER.value):
-        fields[required("start_margin_w", 0)] = _number("W")
-        fields[required("stay_tolerance_w", 0)] = _number("W")
-    return vol.Schema(fields)
+    Optional entities and texts use suggested values so they can be cleared.
+    """
+    schema: dict[Any, Any] = {}
+    for f in device_fields(kind, next_priority):
+        if f.required:
+            fallback = f.default if f.default is not None else vol.UNDEFINED
+            marker: Any = vol.Required(f.name, default=values.get(f.name, fallback))
+        else:
+            marker = vol.Optional(f.name, description=_suggest(values.get(f.name)))
+        if f.type == "entity":
+            schema[marker] = _entity(list(f.domains))
+        elif f.type == "number":
+            schema[marker] = _number(f.unit, f.min if f.min is not None else 0, f.max if f.max is not None else 1_000_000)
+        elif f.type == "select":
+            schema[marker] = _select(list(f.options))
+        elif f.type == "boolean":
+            schema[marker] = selector.BooleanSelector()
+        else:
+            schema[marker] = str
+    return vol.Schema(schema)
 
 
 class SolarPrioConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -324,33 +282,10 @@ class SolarPrioOptionsFlow(OptionsFlow):
         )
 
     def _clean(self, user_input: dict[str, Any]) -> dict[str, Any]:
-        """Normalise form values and validate them with the core model (raises ValueError if invalid)."""
-        device = {**user_input, "kind": self._kind, "priority": int(user_input["priority"])}
-        if (device.get("offpeak") or device.get("offpeak_entity")) and not device.get("measured_entity"):
-            raise ValueError("off-peak top-up needs a measured power entity")  # it could not tell when the device is finished
-        if "phases" in device:
-            device["phases"] = int(device["phases"])
-        fields = {k: v for k, v in device.items() if k in DEVICE_FIELDS or k == "offpeak_entity"}  # build_device reads the entity
-        core = build_device({"id": "x", **fields})
-        # for an EV charger the power range is derived from the electrical settings: store it for the panel
-        device["power_w"], device["min_power_w"] = core.power_w, core.min_power_w
-        return device
+        return clean_device(self._kind, user_input)
 
     def _merge(self, user_input: dict[str, Any]) -> list[dict[str, Any]]:
-        devices = self._devices
-        if self._editing is None:
-            taken = {d["id"] for d in devices}
-            base = slugify(user_input["name"]) or "device"
-            device_id, n = base, 2
-            while device_id in taken:
-                device_id, n = f"{base}_{n}", n + 1
-            devices.append({**user_input, "id": device_id, "enabled": True})
-        else:
-            # keep the identity and the on/off state of the device being edited
-            old = next(d for d in devices if d["id"] == self._editing)
-            edited = {**user_input, "id": self._editing, "enabled": old.get("enabled", True)}
-            devices = [edited if d["id"] == self._editing else d for d in devices]
-        return devices
+        return merge_device(self._devices, user_input, self._editing)
 
     # ---- remove ----
 

@@ -93,7 +93,7 @@ Only when no existing type can express the behaviour. The places to touch, all o
 | `src/solarprio/models.py` | `DeviceKind` value and the `Device` fields it needs, with validation |
 | `src/solarprio/engine.py` | the behaviour in `_wanted` (and in the off-peak/safety paths if relevant) |
 | `custom_components/solarprio/coordinator.py` | `DEVICE_FIELDS` and how the command is sent (`_call`) |
-| `custom_components/solarprio/config_flow.py` | the form for that type (`_details_schema`) |
+| `custom_components/solarprio/forms.py` | the fields of the form for that type (`device_fields`): the Home Assistant form and the panel both read them |
 | `custom_components/solarprio/translations/*.json`, `strings.json` | labels and help texts (a test checks the files agree) |
 | `src/solarprio/runtime/adapters.py` | how the Docker runtime sends it |
 | `docs/`, `README.md`, `CHANGELOG.md` | what it does and what is *not* verified |

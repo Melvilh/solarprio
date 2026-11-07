@@ -30,7 +30,11 @@ async def test_panel_is_registered_and_removed(hass: HomeAssistant):
     assert PANEL_URL_PATH in panels
     assert panels[PANEL_URL_PATH].require_admin is True
     assert panels[PANEL_URL_PATH].config["_panel_custom"]["name"] == "solarprio-panel"
-    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert PANEL_URL_PATH in hass.data["frontend_panels"]  # a reload keeps the panel (an open page must not vanish)
+    assert await hass.config_entries.async_remove(entry.entry_id)
+    await hass.async_block_till_done()
     assert PANEL_URL_PATH not in hass.data["frontend_panels"]
 
 
@@ -109,6 +113,11 @@ async def test_all_commands_require_admin(hass: HomeAssistant, hass_ws_client, h
         {"type": "solarprio/reorder", "ids": ["pump", "dimmer"]},
         {"type": "solarprio/set_routing", "enabled": False},
         {"type": "solarprio/set_device_enabled", "device_id": "pump", "enabled": False},
+        {"type": "solarprio/device_form", "kind": "on_off"},
+        {"type": "solarprio/device_save", "kind": "on_off", "values": {}},
+        {"type": "solarprio/device_remove", "device_id": "pump"},
+        {"type": "solarprio/settings_form"},
+        {"type": "solarprio/settings_save", "values": {}},
     ):
         resp = await ws(client, **msg)
         assert not resp["success"] and resp["error"]["code"] == "unauthorized"
@@ -121,3 +130,29 @@ async def test_state_when_not_configured(hass: HomeAssistant, hass_ws_client):
     client = await hass_ws_client(hass)
     resp = await ws(client, type="solarprio/state")
     assert resp["error"]["code"] == "not_configured"
+
+
+async def test_panel_is_removed_when_the_entry_is_disabled(hass: HomeAssistant):
+    from homeassistant.config_entries import ConfigEntryDisabler
+
+    entry, *_ = await prepare(hass)
+    await hass.config_entries.async_set_disabled_by(entry.entry_id, ConfigEntryDisabler.USER)
+    await hass.async_block_till_done()
+    assert PANEL_URL_PATH not in hass.data["frontend_panels"]
+    await hass.config_entries.async_set_disabled_by(entry.entry_id, None)  # and comes back when enabled again
+    await hass.async_block_till_done()
+    assert PANEL_URL_PATH in hass.data["frontend_panels"]
+
+
+async def test_a_lost_measurement_says_which_sensor_and_why(hass: HomeAssistant, hass_ws_client):
+    await prepare(hass)
+    client = await hass_ws_client(hass)
+    hass.states.async_set(GRID, "unavailable")
+    await coordinator(hass, hass.config_entries.async_entries(DOMAIN)[0]).async_refresh()
+    result = (await ws(client, type="solarprio/state"))["result"]
+    assert result["status"] == "measurement_lost_off"
+    assert result["detail"] == f"{GRID} is unavailable"
+    hass.states.async_set(GRID, "500", {"unit_of_measurement": "W"})
+    await coordinator(hass, hass.config_entries.async_entries(DOMAIN)[0]).async_refresh()
+    result = (await ws(client, type="solarprio/state"))["result"]
+    assert result["status"] == "routing" and result["detail"] is None

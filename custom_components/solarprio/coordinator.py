@@ -178,19 +178,20 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except MeasurementUnavailable as err:
             if self._conf.get(CONF_ON_STALE) == ON_STALE_HOLD:
                 _LOGGER.warning("Measurement lost (%s): holding current state", err)
-                return self._result("measurement_lost_hold", None)
+                return self._result("measurement_lost_hold", None, str(err))
             _LOGGER.warning("Measurement lost (%s): switching loads off", err)
             commands = self.engine.step(0.0, now)  # still honors min on/off durations
             await self._apply(commands, now)
-            return self._result("measurement_lost_off", None)
+            return self._result("measurement_lost_off", None, str(err))
 
         commands = self.engine.step(available, now, dt_util.now())
         await self._apply(commands, now)
         return self._result("routing", available)
 
-    def _result(self, status: str, available: float | None) -> dict[str, Any]:
+    def _result(self, status: str, available: float | None, detail: str | None = None) -> dict[str, Any]:
         return {
             "status": status,
+            "detail": detail,  # why, for a lost measurement (which sensor, how old...)
             "available_w": available,
             "routed_w": self.engine.routed_w,
             "commands": {i: self.engine.state(i).power_w for i in self.device_cfgs},
@@ -270,6 +271,10 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     # ---- live changes from the panel ----------------------------------
 
+    def settings_changed(self, data: dict[str, Any]) -> bool:
+        """True when the site settings (measurement, safety) differ from the ones this coordinator runs with."""
+        return dict(data) != self._conf
+
     def apply_device_options(self, devices: list[dict[str, Any]]) -> bool:
         """Apply new device options in place when only priority/enabled changed.
 
@@ -310,7 +315,7 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         data = self.data or self._result("starting", None)
         devices = [self._device_snapshot(d, data) for d in sorted(self.device_cfgs.values(), key=lambda d: d["priority"])]
         return {
-            "status": data["status"], "available_w": data["available_w"], "routed_w": data["routed_w"],
+            "status": data["status"], "detail": data.get("detail"), "available_w": data["available_w"], "routed_w": data["routed_w"],
             "routing_enabled": self.enabled, "devices": devices,
         }
 

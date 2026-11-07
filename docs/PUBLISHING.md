@@ -23,7 +23,7 @@ a container image). Do them in this order.
 Pushed to <https://github.com/Melvilh/solarprio> (branch `main`) with its description and topics set. Workflows: `Tests`
 (engine and runtime, Home Assistant integration), `Validate` (hassfest, HACS) and `Docker image` (builds on pull requests
 and on tags, never run yet). The HACS action warns that the manifest has no `categories` (a warning, not a failure).
-The `v0.1.0` tag and release are created once `Tests` and `Validate` pass on the commit to tag.
+Releases so far: `v0.1.0`. A new one is created, from the GitHub web page, once `Tests` and `Validate` pass on the commit to tag.
 
 ## You do
 
