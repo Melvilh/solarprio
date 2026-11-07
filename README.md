@@ -40,10 +40,18 @@ This software switches electrical loads. It is **not a safety device** and comes
 
 ### Home Assistant (HACS, custom repository)
 
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Melvilh&repository=solarprio&category=integration)
+
+The button needs [HACS](https://hacs.xyz); My Home Assistant links are reported to need `default_config:` or `my:` in
+your Home Assistant configuration. The badge image and the link could not be tested from the development environment.
+Without the button:
+
 1. In HACS, open the menu (three dots) > **Custom repositories**.
 2. Add `https://github.com/Melvilh/solarprio` as type **Integration**, then **Add**.
 3. Download the integration from HACS and restart Home Assistant.
 4. *Settings > Devices & services > Add integration > solarprio.*
+
+Step by step, in French: [docs/DEMARRAGE_FR.md](docs/DEMARRAGE_FR.md).
 
 Manual install: copy `custom_components/solarprio` to your Home Assistant `config/custom_components/`
 and restart.
