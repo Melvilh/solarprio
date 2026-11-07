@@ -16,6 +16,8 @@ stops drawing power, so it is finished and the next device in priority order tak
 - Finished means finished **for the daily period**: it is not tried again until `reset_at` (default: the end of the
   first window, so once a day). A hot tank therefore costs one short pulse of about two minutes per day.
 - Outside the windows, or once finished, the device is an ordinary surplus device again (the sun can heat it).
+- A device of the **computing task** category is the exception: it needs no measured power and is never "finished"
+  ([TASKS.md](TASKS.md)).
 - The device **needs a measured power** (a sensor in Home Assistant, a `readings.measured_topic` in the Docker runtime).
   Without it solarprio could not tell when the device is finished, so it never forces the device (and refuses the
   settings in the form / the TOML file).

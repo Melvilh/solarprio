@@ -6,7 +6,7 @@ from homeassistant.helpers.translation import async_get_translations
 from custom_components.solarprio.config_flow import _details_schema
 from custom_components.solarprio.const import DOMAIN
 
-KINDS = ["on_off", "proportional", "battery", "ev_charger"]
+KINDS = ["on_off", "proportional", "battery", "ev_charger", "task"]
 
 
 @pytest.mark.parametrize("language", ["en", "fr"])

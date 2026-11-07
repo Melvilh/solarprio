@@ -221,7 +221,7 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         domain = entity.split(".")[0]
         services = self.hass.services
 
-        if cfg["kind"] == DeviceKind.ON_OFF.value:
+        if cfg["kind"] in (DeviceKind.ON_OFF.value, DeviceKind.TASK.value):
             await services.async_call(
                 "homeassistant", "turn_on" if power > 0 else "turn_off", {"entity_id": entity}, blocking=True
             )

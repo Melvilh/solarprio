@@ -9,7 +9,7 @@ from custom_components.solarprio.forms import clean_site, site_fields
 from .test_integration import GRID, coordinator, dev
 from .test_panel import prepare, ws
 
-KINDS = ["on_off", "proportional", "battery", "ev_charger"]
+KINDS = ["on_off", "proportional", "battery", "ev_charger", "task"]
 HEATER = dict(name="Water heater", entity_id="switch.heater", priority=1, power_w=2000, min_on_s=0, min_off_s=0,
               start_margin_w=0, stay_tolerance_w=0)
 

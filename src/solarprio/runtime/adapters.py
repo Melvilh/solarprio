@@ -132,7 +132,7 @@ class MqttActuator:
         dev, opt = self._devices[device_id], self._options[device_id]
         retain = opt.get("retain", False)
         on, off = opt.get("payload_on", "ON"), opt.get("payload_off", "OFF")
-        if dev.kind is DeviceKind.ON_OFF:
+        if dev.kind in (DeviceKind.ON_OFF, DeviceKind.TASK):  # a task publishes its go / stop signal like an on/off load
             self._bus.publish(opt["topic"], on if power_w > 0 else off, retain=retain)
             return
         default_scale = {DeviceKind.EV_CHARGER: "amps", DeviceKind.BATTERY: "watts"}.get(dev.kind, "percent")

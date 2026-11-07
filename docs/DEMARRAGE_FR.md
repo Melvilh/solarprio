@@ -76,6 +76,8 @@ développement > États*, puis ajustez le délai dans *Réglages* si besoin.
 - **Marge d'injection** : quelques dizaines de watts laissés non routés évitent que le bruit de mesure se transforme en
   soutirage. Commencez à 50-100 W et ajustez en observant votre compteur.
 - **Chauffe-eau avec routeur ESPHome** : [WATER_HEATER_EXAMPLE.md](WATER_HEATER_EXAMPLE.md) et [ESPHOME_ROUTER.md](ESPHOME_ROUTER.md).
+- **Tâches informatiques** (calculs lourds, sauvegardes déplaçables) : une catégorie à part qui n'envoie qu'un signal « go »,
+  jamais une coupure de courant : [TASKS.md](TASKS.md). N'utilisez jamais une charge tout-ou-rien pour un ordinateur ou un serveur.
 - **Heures creuses** (chauffe jusqu'à ce que l'appareil ne consomme plus), avec des plages horaires **ou** une entité
   qui indique les heures creuses (la période tarifaire du Linky, par exemple) : [OFFPEAK.md](OFFPEAK.md).
 - **Plusieurs appareils, bornes à contacteur, entreprise** : [MANY_DEVICES.md](MANY_DEVICES.md).

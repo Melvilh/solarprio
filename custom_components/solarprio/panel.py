@@ -16,7 +16,7 @@ from .core import DeviceKind
 from .forms import Field, clean_device, clean_site, device_fields, merge_device, site_fields
 
 PANEL_JS = Path(__file__).parent / "frontend" / "panel.js"
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 
 
 async def async_setup_panel_api(hass: HomeAssistant) -> None:

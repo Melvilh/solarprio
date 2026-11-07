@@ -167,7 +167,8 @@ def parse_config(raw: dict[str, Any]) -> Config:
         )
 
     for device in devices:
-        if device.has_schedule and not (device.id in readings and readings[device.id].measured_topic):
+        needs_measure = device.has_schedule and device.kind is not DeviceKind.TASK  # a task has nothing to finish
+        if needs_measure and not (device.id in readings and readings[device.id].measured_topic):
             raise ConfigError(
                 f"device {device.id!r}: offpeak needs readings.measured_topic (the top-up stops when the device stops consuming)"
             )

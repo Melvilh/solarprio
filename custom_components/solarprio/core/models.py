@@ -32,7 +32,8 @@ def parse_window(text: str) -> tuple[int, int]:
 
 
 class DeviceKind(str, Enum):
-    ON_OFF = "on_off"  # fixed load: water heater, socket, server...
+    ON_OFF = "on_off"  # fixed load: water heater, heater, pump, socket...
+    TASK = "task"  # a "go" signal for computing tasks: switches nothing, so a machine can never lose its power through it
     PROPORTIONAL = "proportional"  # adjustable load: dimmer, F1ATB...
     BATTERY = "battery"  # absorbs surplus as charge power, limited by its state of charge
     EV_CHARGER = "ev_charger"  # current-controlled: starts at min_current_a, steps of current_step_a

@@ -23,7 +23,9 @@ container. So the engine knows nothing about Home Assistant.
   min on/off time, start margin, stay tolerance.
 - `Engine.step(available_w, now)`: walks devices by priority, hands out the
   surplus, applies hysteresis and min on/off timers, returns one command per device (watts).
-- Device types: `on_off`, `proportional`, `battery`, `ev_charger`. An EV charger's power range is derived
+- Device types: `on_off`, `proportional`, `battery`, `ev_charger`, `task` (a go signal: behaves like `on_off` for the surplus and,
+  with an off-peak schedule, is on for the whole period without a measurement; the Home Assistant form only accepts an
+  `input_boolean` for it). An EV charger's power range is derived
   from voltage, phases and min/max current; commands stay in watts, runtimes convert with `Device.current_for`.
 - `DeviceReading` (`Engine.set_reading`): optional measured power, state of charge and plug state per device.
   Safety limits (SoC reached, car unplugged) override the min on/off timers. `routed_w` uses measured power when known,

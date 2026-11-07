@@ -94,7 +94,7 @@
           "offpeak_values": "States meaning off-peak (optional)"
         },
         "data_description": {
-          "entity_id": "On/off and proportional: the entity to switch or set. Battery: the number entity of the charge setpoint. EV charger: the number entity of the charging current in amps.",
+          "entity_id": "On/off and adjustable: the entity to switch or set. Battery: the number entity of the charge setpoint. EV charger: the number entity of the charging current in amps. Task: a helper (input_boolean) that your own scripts read; solarprio never switches a power supply for a task. Do not use an on/off load for a computer, server or NAS: cutting their power can lose data.",
           "scale": "percent: 0-100 of the maximum power. watts: power in W.",
           "soc_max": "Without a state of charge sensor, a limit below 100 means the device will not charge.",
           "min_current_a": "6 A is the usual minimum for AC charging (IEC 61851-1); check your charger.",
@@ -107,7 +107,8 @@
           "done_below_w": "Measured power at or below which the device counts as finished.",
           "done_after_s": "Seconds the device must have been on before a low consumption means finished (slow sensors, inrush).",
           "offpeak_entity": "Instead of windows: an entity that tells when the tariff is off-peak, for example the tariff period of your Linky (a sensor), a binary sensor or a boolean. The top-up runs while it says off-peak, and each new off-peak period tries the device again. Unknown or unavailable never starts anything.",
-          "offpeak_values": "Comma separated states that mean off-peak, for example HC.. or 2. Check the real state of your entity in Developer tools > States. Empty: on, true, HC, HC.., and any text containing creuse (case-insensitive)."
+          "offpeak_values": "Comma separated states that mean off-peak, for example HC.. or 2. Check the real state of your entity in Developer tools > States. Empty: on, true, HC, HC.., and any text containing creuse (case-insensitive).",
+          "power_w": "Maximum power of the load. For a task: an estimate of what the tasks it allows will draw (used to decide when there is enough surplus)."
         }
       },
       "import_energy": {
@@ -133,10 +134,11 @@
   "selector": {
     "device_kind": {
       "options": {
-        "on_off": "On/off load (water heater, socket, server)",
+        "on_off": "On/off load (water heater, heater, pump, socket)",
         "proportional": "Adjustable load (dimmer, router)",
         "battery": "Battery",
-        "ev_charger": "EV charger"
+        "ev_charger": "EV charger",
+        "task": "Computing task (go signal, never a power switch)"
       }
     }
   }

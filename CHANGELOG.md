@@ -3,7 +3,19 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
-## [0.1.1] - Unreleased
+## [0.1.2] - Unreleased
+
+### Added
+- **Computing task** category: a "go" signal for computing workloads that follows the solar surplus or the off-peak
+  periods. It switches nothing (the Home Assistant form accepts only an `input_boolean`), needs no measured power and is never
+  "finished". Example script `examples/task-go-poll.sh` and guide `docs/TASKS.md`.
+
+### Changed
+- A server or computer is no longer given as an example of an on/off load, and the on/off help warns against using it
+  for a machine that must not lose its power. The Docker example uses a task instead.
+- The off-peak status in the panel reads "running" instead of "heating".
+
+## [0.1.1] - 2026-11-07
 
 ### Added
 - Add, edit, delete devices and edit the measurement and safety settings from the sidebar panel (the forms come from the

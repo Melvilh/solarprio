@@ -195,7 +195,7 @@ class SolarPrioOptionsFlow(OptionsFlow):
                     vol.Required("devices"): selector.SelectSelector(selector.SelectSelectorConfig(options=options, multiple=True)),
                     vol.Required("kind", default=DeviceKind.ON_OFF.value): selector.SelectSelector(
                         selector.SelectSelectorConfig(
-                            options=[k.value for k in DeviceKind if k is not DeviceKind.BATTERY],
+                            options=[k.value for k in DeviceKind if k not in (DeviceKind.BATTERY, DeviceKind.TASK)],
                             translation_key="device_kind",
                             mode=selector.SelectSelectorMode.LIST,
                         )

@@ -94,7 +94,7 @@
           "offpeak_values": "États qui signifient heures creuses (facultatif)"
         },
         "data_description": {
-          "entity_id": "Tout-ou-rien et proportionnel : l'entité à commuter ou régler. Batterie : l'entité number de la consigne de charge. Borne : l'entité number du courant de charge en ampères.",
+          "entity_id": "Tout-ou-rien et réglable : l'entité à commuter ou régler. Batterie : l'entité number de la consigne de charge. Borne : l'entité number du courant de charge en ampères. Tâche : un assistant (input_boolean) que vos propres scripts lisent ; solarprio ne commute jamais une alimentation pour une tâche. N'utilisez pas une charge tout-ou-rien pour un ordinateur, un serveur ou un NAS : couper leur courant peut faire perdre des données.",
           "scale": "percent : 0-100 de la puissance maximale. watts : puissance en W.",
           "soc_max": "Sans capteur de niveau de charge, une limite inférieure à 100 empêche la charge.",
           "min_current_a": "6 A est le minimum usuel en courant alternatif (IEC 61851-1) ; vérifiez votre borne.",
@@ -107,7 +107,8 @@
           "done_below_w": "Puissance mesurée en dessous de laquelle l'appareil est considéré comme terminé.",
           "done_after_s": "Secondes de marche avant qu'une faible consommation signifie terminé (capteurs lents, appel de courant).",
           "offpeak_entity": "À la place des plages : une entité qui indique quand le tarif est en heures creuses, par exemple la période tarifaire de votre Linky (un capteur), un capteur binaire ou un booléen. La chauffe tourne tant qu'elle indique heures creuses, et chaque nouvelle période d'heures creuses réessaie l'appareil. Inconnu ou indisponible ne démarre jamais rien.",
-          "offpeak_values": "États séparés par des virgules qui signifient heures creuses, par exemple HC.. ou 2. Vérifiez l'état réel de votre entité dans Outils de développement > États. Vide : on, true, HC, HC.., et tout texte contenant creuse (sans tenir compte des majuscules)."
+          "offpeak_values": "États séparés par des virgules qui signifient heures creuses, par exemple HC.. ou 2. Vérifiez l'état réel de votre entité dans Outils de développement > États. Vide : on, true, HC, HC.., et tout texte contenant creuse (sans tenir compte des majuscules).",
+          "power_w": "Puissance maximale de la charge. Pour une tâche : une estimation de ce que consommeront les tâches autorisées (sert à décider s'il y a assez de surplus)."
         }
       },
       "import_energy": {
@@ -133,10 +134,11 @@
   "selector": {
     "device_kind": {
       "options": {
-        "on_off": "Charge tout-ou-rien (chauffe-eau, prise, serveur)",
+        "on_off": "Charge tout-ou-rien (chauffe-eau, radiateur, pompe, prise)",
         "proportional": "Charge réglable (variateur, routeur)",
         "battery": "Batterie",
-        "ev_charger": "Borne de recharge"
+        "ev_charger": "Borne de recharge",
+        "task": "Tâche informatique (signal « go », jamais un interrupteur d'alimentation)"
       }
     }
   }

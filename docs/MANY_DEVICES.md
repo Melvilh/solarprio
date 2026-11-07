@@ -9,7 +9,8 @@ points on 30 kW of sun, the next water heaters starting as soon as the sun allow
 - A charging point switched by a **contactor** is an *on/off* device with the charger's maximum power: the car decides
   the real current. Give it a **measured power** sensor: when the car draws less than the command (after `settle_s`,
   30 s by default) the difference goes to the next device.
-- Water heaters, heat pumps, servers: *on/off* or *adjustable* devices, each with its own priority.
+- Water heaters, heat pumps, pumps: *on/off* or *adjustable* devices, each with its own priority. Computing workloads use the
+  *computing task* category instead, which only sends a go signal ([TASKS.md](TASKS.md)).
 - For the **off-peak top-up** the default is one device at a time (safe for a small subscription). Set the
   **off-peak power budget** (Home Assistant: the setup form; Docker: `[runtime] offpeak_budget_w`) to the power you may
   draw from the grid at night: devices are then topped up in priority order as long as they fit, a finished device frees

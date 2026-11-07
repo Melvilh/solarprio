@@ -1,7 +1,7 @@
 # solarprio
 
 **Route your solar surplus where you want it, in the order you choose.**
-Set the priority of your loads (water heater, EV charger, battery, heat pump, servers...) by dragging
+Set the priority of your loads (water heater, EV charger, battery, heat pump...) by dragging
 them in a list, and the surplus flows to them automatically. Open source, works inside Home Assistant
 or standalone in Docker.
 
@@ -26,7 +26,8 @@ This software switches electrical loads. It is **not a safety device** and comes
 
 - **One ordered list** of devices; drag to change priority, takes effect immediately without switching anything off.
   Add, edit and delete devices, and change the measurement settings, from the same panel.
-- **Device types:** on/off loads, adjustable loads (dimmer, router), batteries, EV chargers.
+- **Device types:** on/off loads, adjustable loads (dimmer, router), batteries, EV chargers, and computing tasks (a "go"
+  signal that never switches a power supply, see [docs/TASKS.md](docs/TASKS.md)).
 - **Many devices:** any number, started together when the surplus allows; setup pre-filled from the Home Assistant Energy
   dashboard, with import and copy of devices. See [docs/MANY_DEVICES.md](docs/MANY_DEVICES.md).
 - **Off-peak top-up:** during your off-peak hours a device is fed from the grid until it stops consuming (a hot water

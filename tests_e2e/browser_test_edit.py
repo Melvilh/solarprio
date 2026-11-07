@@ -30,7 +30,8 @@ with sync_playwright() as p:
     dialog.wait_for()
     kinds = page.locator("solarprio-panel .dialog button.kind").all_inner_texts()
     print("types offered:", kinds)
-    assert len(kinds) == 4 and any("Batterie" in k for k in kinds), kinds
+    assert len(kinds) == 5 and any("Batterie" in k for k in kinds) and any("Tâche informatique" in k for k in kinds), kinds
+    assert not any("serveur" in k.lower() for k in kinds), kinds  # no suggestion to cut a server's power
     page.screenshot(path="panel_add_type.png")
     page.locator("solarprio-panel .dialog button.kind").first.click()
     page.locator("solarprio-panel #f-name").wait_for()

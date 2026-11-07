@@ -62,17 +62,23 @@ stay_tolerance_w = 200
   payload_on = "ON"
   payload_off = "OFF"
 
+# ---- Computing tasks: a "go" signal, never a power switch ----
+# solarprio only publishes ON / OFF on a topic; your own scripts decide what to run when it says ON (see docs/TASKS.md).
+# power_w is an estimate of what the allowed tasks draw, used to decide when there is enough surplus.
+# Never point an on/off device at something that cuts the power of a computer, a server or a NAS.
 [[device]]
-id = "server"
-name = "Compute server"
+id = "heavy_tasks"
+name = "Heavy computing tasks"
 priority = 3
-kind = "on_off"
+kind = "task"
 power_w = 300
 min_on_s = 300
+# offpeak = ["22:30-06:30"]   # or follow a tariff topic with [device.readings] offpeak_topic; no measured power needed
   [device.actuator]
-  type = "http"
-  url = "http://192.168.1.50:8080/compute/{state}"
-  method = "POST"
+  type = "mqtt"
+  topic = "home/tasks/heavy/go"
+  payload_on = "ON"
+  payload_off = "OFF"
 
 # ---- Battery: charge setpoint in watts, limited by its state of charge ----
 [[device]]

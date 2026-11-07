@@ -40,5 +40,5 @@ Nothing below has been tried; each is a good first contribution. They are ideas,
 - Heat pumps and electric radiators with contact inputs or setpoints.
 - Wallboxes: through Home Assistant entities, MQTT, and (as an adapter) OCPP or Modbus.
 - Inverters and batteries other than Victron.
-- Servers and other IT loads (wake/suspend, power capping).
+- Computing workloads (see [TASKS.md](TASKS.md)): scripts and schedulers that read the go signal (cron, systemd timers, job queues).
 - Meters: other ways to read the grid power, per phase.

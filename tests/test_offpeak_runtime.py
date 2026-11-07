@@ -187,3 +187,30 @@ def test_the_controller_feeds_a_device_while_the_topic_says_off_peak():
     source.error = MeasurementUnavailable("grid sensor gone")  # safety first, even in off-peak
     asyncio.run(ctl.tick())
     assert actuator.calls[-1] == ("ecs", 0.0)
+
+
+# ---------------------------------------------------------------- the task category
+
+def test_a_task_publishes_a_go_signal_and_needs_no_measured_topic_for_off_peak():
+    from fakes import FakeBus
+    from solarprio.runtime.adapters import MqttActuator
+
+    raw = minimal()
+    raw["device"][0].update(kind="task", power_w=100, offpeak=["22:30-06:30"])  # no readings.measured_topic: accepted for a task
+    cfg = parse_config(raw)
+    dev = cfg.devices[0]
+    assert dev.kind.value == "task" and dev.has_schedule
+
+    bus = FakeBus()
+    actuator = MqttActuator(bus, {dev.id: dev}, {dev.id: {"topic": "home/tasks/go", "payload_on": "GO", "payload_off": "STOP"}})
+    asyncio.run(actuator.apply(dev.id, 100.0))
+    asyncio.run(actuator.apply(dev.id, 0.0))
+    assert bus.published == [("home/tasks/go", "GO"), ("home/tasks/go", "STOP")]
+
+
+def test_a_task_is_fed_by_the_controller_during_off_peak_without_a_measurement():
+    engine = Engine([Device(id="ia", name="IA", priority=1, kind=DeviceKind.TASK, power_w=100, offpeak=("22:30-06:30",))])
+    actuator = FakeActuator()
+    ctl = Controller(engine, FakeSource(), actuator, RuntimeConfig(), lambda: 0.0, local_clock=lambda: datetime(2026, 11, 10, 23, 0))
+    asyncio.run(ctl.tick())
+    assert actuator.calls[-1] == ("ia", 100.0)

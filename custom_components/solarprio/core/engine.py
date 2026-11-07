@@ -137,6 +137,8 @@ class Engine:
             return False
         if state.done_cycle == self._period_key(dev, state, local):
             return False
+        if dev.kind is DeviceKind.TASK:
+            return True  # a go signal: nothing to measure, nothing to finish
         if reading is None or reading.measured_w is None:
             return False  # without a measured power we could not tell when it is finished: never force blindly
         if dev.kind is DeviceKind.EV_CHARGER:
@@ -151,6 +153,7 @@ class Engine:
         does not fit in the budget waits (a smaller one further down may still fit).
         """
         chosen: set[str] = set()
+        fed: set[str] = set()  # the devices that count against the budget (tasks are only signals)
         used_w = 0.0
         if local is None:  # callers pass no clock when the grid measurement is lost: nothing is forced, whatever the mode
             for state in self._states.values():
@@ -161,7 +164,11 @@ class Engine:
             if not self._top_up_candidate(dev, state, reading, local):
                 state.topup_since = None
                 continue
-            if chosen and used_w + dev.power_w > self._offpeak_budget_w:
+            if dev.kind is DeviceKind.TASK:  # a go signal for the whole off-peak period: no turn, no budget, never "finished"
+                chosen.add(dev.id)
+                state.topup_since = None
+                continue
+            if fed and used_w + dev.power_w > self._offpeak_budget_w:
                 state.topup_since = None  # waits its turn
                 continue
             if state.power_w > 0:
@@ -173,6 +180,7 @@ class Engine:
             else:
                 state.topup_since = None
             chosen.add(dev.id)
+            fed.add(dev.id)
             used_w += dev.power_w
         return chosen
 
@@ -243,7 +251,7 @@ class Engine:
     @classmethod
     def _wanted(cls, dev: Device, state: DeviceState, reading: DeviceReading | None, remaining: float) -> tuple[float, bool]:
         """Return ``(power, forced_off)``. ``forced_off`` skips the min on/off timers (safety limits)."""
-        if dev.kind is DeviceKind.ON_OFF:
+        if dev.kind in (DeviceKind.ON_OFF, DeviceKind.TASK):
             if state.on:
                 keep = remaining >= dev.power_w - dev.stay_tolerance_w
                 return (dev.power_w if keep else 0.0), False
@@ -282,7 +290,7 @@ class Engine:
         elapsed = now - state.changed_at
         if state.on and wanted == 0 and elapsed < dev.min_on_s:
             # held on: keep the lowest power the load accepts
-            if dev.kind is not DeviceKind.ON_OFF and dev.min_power_w > 0:
+            if dev.kind not in (DeviceKind.ON_OFF, DeviceKind.TASK) and dev.min_power_w > 0:
                 return dev.min_power_w
             return state.power_w
         if not state.on and wanted > 0 and elapsed < dev.min_off_s:

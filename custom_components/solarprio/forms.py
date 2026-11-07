@@ -114,6 +114,12 @@ def device_fields(kind: str, next_priority: int = 1) -> list[Field]:
             _select("scale", ("percent", "watts"), "percent"),
             _entity("measured_entity", ("sensor",)),
         ]
+    elif kind == DeviceKind.TASK.value:
+        fields += [
+            _entity("entity_id", ("input_boolean",), True),  # a helper only: never a switch that cuts a power supply
+            _number("priority", None, next_priority, 1, 999),
+            _number("power_w", "W", None, 1),
+        ]
     else:  # on_off
         fields += [
             _entity("entity_id", ("switch", "input_boolean", "light"), True),
@@ -127,12 +133,11 @@ def device_fields(kind: str, next_priority: int = 1) -> list[Field]:
             _text("offpeak"),
             _entity("offpeak_entity", OFFPEAK_SIGNAL_DOMAINS),
             _text("offpeak_values"),
-            _text("reset_at"),
-            _number("done_below_w", "W", 0),
-            _number("done_after_s", "s", 120),
         ]
+        if kind != DeviceKind.TASK.value:  # a task has nothing to measure, so nothing that can be "finished"
+            fields += [_text("reset_at"), _number("done_below_w", "W", 0), _number("done_after_s", "s", 120)]
     fields += [_number("min_on_s", "s", 0), _number("min_off_s", "s", 0)]
-    if kind in (DeviceKind.ON_OFF.value, DeviceKind.EV_CHARGER.value):
+    if kind in (DeviceKind.ON_OFF.value, DeviceKind.EV_CHARGER.value, DeviceKind.TASK.value):
         fields += [_number("start_margin_w", "W", 0), _number("stay_tolerance_w", "W", 0)]
     return fields
 
@@ -173,7 +178,7 @@ def clean_device(kind: str, user_input: dict[str, Any]) -> dict[str, Any]:
         if f.type == "entity" and not str(value).startswith(tuple(f"{d}." for d in f.domains)):
             raise ValueError(f"{f.name} must be a {' / '.join(f.domains)} entity")
     device.update(kind=kind, priority=int(user_input["priority"]))
-    if (device.get("offpeak") or device.get("offpeak_entity")) and not device.get("measured_entity"):
+    if (device.get("offpeak") or device.get("offpeak_entity")) and not device.get("measured_entity") and kind != DeviceKind.TASK.value:
         raise ValueError("off-peak top-up needs a measured power entity")  # it could not tell when the device is finished
     if "phases" in device:
         device["phases"] = int(device["phases"])
