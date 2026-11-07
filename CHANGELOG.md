@@ -30,6 +30,8 @@ First public version (alpha).
 - Off-peak power budget (`offpeak_budget_w`): top up several devices together up to a power, default one at a time.
 - Home Assistant setup pre-filled from the Energy dashboard (grid and solar power sensors), import of the dashboard's
   devices, and copy of a device (`docs/MANY_DEVICES.md`).
+- Contribution documentation: how to add compatibility (`docs/ADDING_COMPATIBILITY.md`), a compatibility list, hardware page
+  and example templates, a roadmap, a compatibility issue template; every example configuration is validated by the tests.
 
 ### Safety behaviour
 - Undelivered commands (broker down, service error) are retried and never counted as routed power.

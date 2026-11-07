@@ -3,6 +3,9 @@
 Thanks for helping. This project switches electrical loads, so changes to the allocation engine and the
 safety behaviour (measurement loss, limits, shutdown) get extra scrutiny.
 
+Want to make **your hardware** work? Most of the time that needs no code: see
+[docs/ADDING_COMPATIBILITY.md](docs/ADDING_COMPATIBILITY.md). Looking for something to do: [docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## Ground rules
 
 - By contributing you agree your work is licensed under the Apache License 2.0 (the project license).

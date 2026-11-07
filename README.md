@@ -136,6 +136,12 @@ scripts/e2e_ha.sh           # real Home Assistant + real Chromium driving the pa
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
+## Make it work with your hardware
+
+The project is meant to grow with what people own. A tested configuration and a short page is already a contribution
+(no code needed): [docs/ADDING_COMPATIBILITY.md](docs/ADDING_COMPATIBILITY.md). What is known to work, and how well it
+was verified: [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md). Ideas and open work: [docs/ROADMAP.md](docs/ROADMAP.md).
+
 ## License
 
 Apache License 2.0, see [LICENSE](LICENSE). The project name and logo are not covered by the license.

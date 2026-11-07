@@ -76,6 +76,11 @@ container. So the engine knows nothing about Home Assistant.
 - Entities: `Routing` switch (restored across restarts), available / routed power, status,
   one command sensor per device.
 
+## Extending
+
+How to add hardware, an adapter or a device type, and which files each one touches:
+[ADDING_COMPATIBILITY.md](ADDING_COMPATIBILITY.md).
+
 ## Not yet decided or built
 
 - HA integration: After a HA

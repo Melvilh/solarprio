@@ -1,0 +1,30 @@
+# Template for a hardware recipe of the standalone (Docker) runtime.
+# Copy to examples/<vendor>-<model>.toml, fill in, and describe it in docs/hardware/<vendor>-<model>.md.
+# Replace personal values with <PLACEHOLDERS>. This file is parsed by the test suite.
+
+[runtime]
+interval_s = 5
+stale_after_s = 30
+on_stale = "off"
+
+[mqtt]
+host = "<BROKER_IP>"
+
+[source]
+mode = "export"
+export_topic = "<GRID_POWER_TOPIC>"
+invert = false          # true if your meter is positive when you IMPORT
+
+[[device]]
+id = "my_load"
+name = "My load"
+priority = 1
+kind = "on_off"         # on_off, proportional, battery or ev_charger
+power_w = 1000
+  [device.actuator]
+  type = "mqtt"
+  topic = "<COMMAND_TOPIC>"
+  payload_on = "ON"
+  payload_off = "OFF"
+  [device.readings]
+  measured_topic = "<MEASURED_POWER_TOPIC>"

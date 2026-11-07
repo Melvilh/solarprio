@@ -59,7 +59,8 @@ def test_translations_cover_the_same_keys():
         else:
             yield prefix
 
-    en = set(keys(json.loads(read(INTEGRATION / "translations" / "en.json"))))
-    fr = set(keys(json.loads(read(INTEGRATION / "translations" / "fr.json"))))
     strings = set(keys(json.loads(read(INTEGRATION / "strings.json"))))
-    assert en == fr == strings, (en ^ fr, en ^ strings)
+    files = sorted((INTEGRATION / "translations").glob("*.json"))
+    assert {f.stem for f in files} >= {"en", "fr"}
+    for f in files:  # every language, including those added later
+        assert set(keys(json.loads(read(f)))) == strings, f"{f.name} differs from strings.json"
