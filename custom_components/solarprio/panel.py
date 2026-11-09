@@ -13,7 +13,7 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant, callback
 
 from .const import CONF_DEVICES, CONF_SUBSCRIPTION, DOMAIN, PANEL_STATIC_URL, PANEL_URL_PATH
-from .coordinator import SolarPrioCoordinator
+from .coordinator import SolarPrioCoordinator, with_site_offpeak
 from .core import DeviceKind
 from .core.profiles import localized
 from .forms import PRESETS, Field, clean_device, clean_site, device_fields, merge_device, site_fields
@@ -191,21 +191,29 @@ async def ws_device_form(hass: HomeAssistant, connection: websocket_api.ActiveCo
     connection.send_result(msg["id"], {"fields": fields, "values": values, "kinds": kinds, "presets": presets})
 
 
+def _numeric_signal(hass: HomeAssistant, entity: str | None, values_text: Any) -> bool:
+    """True when the off-peak entity reports a number: it is an index or a price, never "HC"."""
+    state = hass.states.get(entity) if entity else None
+    if state is None:
+        return False
+    try:
+        float(state.state)
+    except ValueError:
+        return False
+    # only numeric states listed on purpose (a price level) are fine
+    wanted = [v.strip() for v in str(values_text or "").replace(";", ",").split(",") if v.strip()]
+    return not any(re.fullmatch(r"-?[\d.]+", v) for v in wanted)
+
+
 def _warnings(hass: HomeAssistant, device: dict[str, Any], coordinator: Any = None) -> list[str]:
     """Mistakes that are valid but certainly wrong, spotted from the current state of the chosen entities and the settings."""
     warnings = []
-    entity = device.get("offpeak_entity")
-    state = hass.states.get(entity) if entity else None
-    if state is not None:
-        try:
-            float(state.state)
-        except ValueError:
-            pass
-        else:
-            # a number is never "HC": it is an index or a price. Only numeric states listed on purpose (a price level) are fine.
-            wanted = [v.strip() for v in str(device.get("offpeak_values") or "").replace(";", ",").split(",") if v.strip()]
-            if not any(re.fullmatch(r"-?[\d.]+", v) for v in wanted):
-                warnings.append("offpeak_numeric")
+    site = coordinator._conf if coordinator is not None else {}
+    effective = with_site_offpeak(device, site)  # what the device will really use, the site's hours included
+    if _numeric_signal(hass, effective.get("offpeak_entity"), effective.get("offpeak_values")):
+        warnings.append("offpeak_numeric")
+    if device.get("offpeak_site") and (device.get("offpeak_entity") or device.get("offpeak") or device.get("offpeak_extra")):
+        warnings.append("offpeak_own_wins")  # ticked "follow the site", but its own hours are filled in and win
     feeds_grid = not device.get("surplus_only") and (
         device.get("offpeak") or device.get("offpeak_entity") or device.get("temp_min") is not None
     )
@@ -287,4 +295,5 @@ def ws_settings_save(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         return
     entry = coordinator.config_entry
     hass.config_entries.async_update_entry(entry, data=data)  # the update listener reloads the entry
-    connection.send_result(msg["id"], {"saved": True})
+    warnings = ["offpeak_numeric"] if _numeric_signal(hass, data.get("offpeak_entity"), data.get("offpeak_values")) else []
+    connection.send_result(msg["id"], {"saved": True, "warnings": warnings})

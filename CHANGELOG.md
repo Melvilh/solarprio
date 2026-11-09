@@ -3,6 +3,12 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- The panel warns when a numeric off-peak entity (an energy index) is chosen for the site Settings, and when a device ticked
+  "Follow the site off-peak hours" still has its own off-peak entity or windows filled in (they win over the site's).
+
 ## [0.3.0] - 2026-11-09
 
 ### Added

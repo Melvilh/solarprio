@@ -138,3 +138,31 @@ async def test_the_panel_saves_the_site_off_peak_hours_and_refuses_a_bad_window(
         assert not bad["success"] or bad["result"].get("field") == "offpeak" or "offpeak" in str(bad)
         good = await ws(client, type="solarprio/settings_save", values={**form["values"], "offpeak_entity": PERIOD, "offpeak": "22:30-06:30"})
         assert good["success"], good
+
+
+async def test_the_panel_warns_about_a_numeric_site_signal_and_about_a_device_whose_own_hours_win(hass: HomeAssistant, hass_ws_client):
+    hass.states.async_set("sensor.index_wh", "0.0", {"unit_of_measurement": "Wh", "device_class": "energy"})
+    world = World(hass, data=SITE_OFFPEAK, devices=[])
+    hass.states.async_set(PERIOD, "HP..")
+    p1, p2 = world.patches()
+    with p1, p2:
+        await setup(hass, data=SITE_OFFPEAK, devices=[])
+        client = await hass_ws_client(hass)
+        form = (await ws(client, type="solarprio/settings_form", language="en"))["result"]
+        bad = await ws(client, type="solarprio/settings_save", values={**form["values"], "offpeak_entity": "sensor.index_wh",
+                                                                       "offpeak_values": "HC.."})
+        assert bad["success"] and bad["result"]["warnings"] == ["offpeak_numeric"]
+        await hass.async_block_till_done()
+        good = await ws(client, type="solarprio/settings_save", values={**form["values"], "offpeak_entity": PERIOD})
+        assert good["result"]["warnings"] == []
+        await hass.async_block_till_done()
+        base = {"name": "ECS", "entity_id": SETPOINT, "priority": 1, "power_w": 2400, "measured_entity": POWER, "temp_entity": TEMP,
+                "temp_max_solar": 65, "scale": "watts", "offpeak_site": True}
+        # the device keeps an old index of its own: it wins over the site's good signal, and it is a number
+        saved = await ws(client, type="solarprio/device_save", kind="proportional",
+                         values={**base, "offpeak_entity": "sensor.index_wh", "offpeak_values": "HC.."})
+        assert {"offpeak_numeric", "offpeak_own_wins"} <= set(saved["result"]["warnings"])
+        await hass.async_block_till_done()
+        # following the site with nothing of its own: no warning of either kind
+        clean = await ws(client, type="solarprio/device_save", kind="proportional", device_id="ecs", values=base)
+        assert not {"offpeak_numeric", "offpeak_own_wins"} & set(clean["result"]["warnings"])

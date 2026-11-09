@@ -31,6 +31,7 @@ const T = {
     otherTypes: "Other types",
     staleHint: "A sensor that only reports when its value changes can look old. If this one is fine, set the delay to 0 in Settings.",
     warnings: {
+      offpeak_own_wins: "Saved, but this device follows the site off-peak hours AND has its own off-peak entity or windows filled in: its own win. Clear them if you want the site's.",
       no_subscription_cap: "Saved, but this device can be fed from the grid and no Subscription limit is set in the Settings: nothing keeps the house under your meter's limit. Set the Subscription limit (for example 5700 VA for a 6 kVA meter) and the house power sensor.",
       offpeak_numeric: "Saved, but the off-peak entity you picked reports a number (an energy index?). A tariff period reads like HC.. or HP..: check it in Developer tools > States.",
     },
@@ -92,6 +93,7 @@ const T = {
     otherTypes: "Autres types",
     staleHint: "Un capteur qui ne publie que lorsque sa valeur change peut sembler vieux. Si celui-ci est en bon état, mettez le délai à 0 dans Réglages.",
     warnings: {
+      offpeak_own_wins: "Enregistré, mais cet appareil suit les heures creuses du site ET a sa propre entité ou ses propres plages d'heures creuses : les siennes l'emportent. Videz-les si vous voulez celles du site.",
       no_subscription_cap: "Enregistré, mais cet appareil peut être alimenté depuis le réseau et aucune Limite d'abonnement n'est réglée dans les Réglages : rien ne garde la maison sous la limite de votre compteur. Réglez la Limite d'abonnement (par exemple 5700 VA pour un compteur 6 kVA) et le capteur de puissance de la maison.",
       offpeak_numeric: "Enregistré, mais l'entité d'heures creuses choisie donne un nombre (un index d'énergie ?). Une période tarifaire se lit HC.. ou HP.. : vérifiez dans Outils de développement > États.",
     },
