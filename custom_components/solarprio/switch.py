@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
 from .coordinator import SolarPrioCoordinator
+from .core import DeviceKind
 from .sensor import device_info
 
 
@@ -21,7 +22,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     entities: list[SwitchEntity] = [RoutingSwitch(coordinator, entry)]
     for cfg in coordinator.device_cfgs.values():
         device = coordinator.engine.device(cfg["id"])
-        if device.sanitary_forced_only:
+        if device.sanitary_forced_only or device.kind in (DeviceKind.EV_CHARGER, DeviceKind.BATTERY):
             entities.append(DeviceFlagSwitch(coordinator, entry, cfg, "forced_run", "forced run", "mdi:water-boiler-alert"))
         if device.windows_extra:
             entities.append(DeviceFlagSwitch(coordinator, entry, cfg, "extra_windows", "extra off-peak windows", "mdi:clock-plus-outline"))

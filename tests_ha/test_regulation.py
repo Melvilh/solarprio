@@ -194,7 +194,7 @@ async def test_advanced_fields_are_flagged_for_the_panel(hass: HomeAssistant, ha
         fields = {f["name"]: f for f in (await ws(client, type="solarprio/device_form", kind="proportional", language="fr"))["result"]["fields"]}
         basic = [n for n, f in fields.items() if not f["advanced"]]
         assert basic == ["name", "entity_id", "priority", "power_w", "scale", "measured_entity", "temp_entity", "temp_max_solar",
-                         "temp_max_offpeak", "offpeak_entity"]
+                         "temp_max_offpeak", "offpeak_site", "offpeak_entity"]
         assert all(fields[n]["advanced"] for n in ("hold_s", "ramp_up_w", "deadband_w", "temp_min", "temp_hysteresis", "surplus_only"))
 
 

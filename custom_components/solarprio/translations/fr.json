@@ -22,7 +22,11 @@
           "offpeak_budget_w": "Budget de puissance en heures creuses",
           "subscription_va": "Limite de puissance de la maison, votre abonnement (VA)",
           "house_entity": "Capteur de puissance de la maison (ce que toute la maison tire)",
-          "emergency_import_w": "Coupure d'urgence au-delà de ce soutirage (W)"
+          "emergency_import_w": "Coupure d'urgence au-delà de ce soutirage (W)",
+          "offpeak_entity": "Signal heures creuses (facultatif)",
+          "offpeak_values": "États qui signifient heures creuses (facultatif)",
+          "offpeak": "Plages heures creuses (facultatif)",
+          "offpeak_extra": "Plages heures creuses supplémentaires (facultatif, avec un interrupteur par appareil)"
         },
         "data_description": {
           "margin_w": "Watts volontairement non routés pour que le bruit de mesure et la latence ne deviennent pas du soutirage.",
@@ -30,13 +34,20 @@
           "subscription_va": "Le maximum que la maison peut tirer. Quand elle est renseignée, tout ce que solarprio alimente volontairement depuis le réseau (heures creuses, sanitaire) est limité à ce qui reste sous cette valeur après le reste de la maison, et rien n'est alimenté depuis le réseau si la puissance de la maison est inconnue. Laissez vide pour aucune limite. Demande le capteur de puissance de la maison ci-dessous.",
           "house_entity": "Par exemple la puissance soutirée au réseau sur votre compteur. Nécessaire pour la limite ci-dessus.",
           "emergency_import_w": "Si plus que cela est tiré du réseau (sans compter ce qui est alimenté volontairement depuis le réseau), tous les appareils qui tournent avec le soleil sont coupés d'un coup. Laissez vide pour la désactiver.",
-          "stale_after_s": "Secondes sans mise à jour après lesquelles la mesure est considérée comme perdue. 0 = ne jamais juger à l'âge, seulement à la disponibilité : à utiliser quand votre capteur ne republie pas une valeur qui ne change pas (le panneau affiche sinon « n'a pas rapporté depuis N s » pour un capteur en parfaite santé)."
+          "stale_after_s": "Secondes sans mise à jour après lesquelles la mesure est considérée comme perdue. 0 = ne jamais juger à l'âge, seulement à la disponibilité : à utiliser quand votre capteur ne republie pas une valeur qui ne change pas (le panneau affiche sinon « n'a pas rapporté depuis N s » pour un capteur en parfaite santé).",
+          "offpeak_entity": "L'entité qui indique quand le tarif est en heures creuses, par exemple la période tarifaire de votre Linky (un capteur qui lit HC.. ou HP..), un capteur binaire ou un booléen. PAS un index d'énergie (un nombre qui ne fait que croître). Les appareils qui suivent les heures creuses du site l'utilisent.",
+          "offpeak_values": "Les états qui signifient heures creuses, séparés par des virgules. Laissez vide pour une période tarifaire du type HC.., « on » ou « true ». Exemple : HC*",
+          "offpeak": "Heure locale, 24 h, séparées par des virgules, par exemple 22:30-06:30 (une plage peut passer minuit). Les appareils qui suivent les heures creuses du site sont alimentés dans ces plages. Si vous renseignez aussi l'entité de signal, les DEUX doivent indiquer heures creuses.",
+          "offpeak_extra": "D'autres plages, par exemple les heures creuses du midi 12:30-14:30. Elles ne comptent que lorsque l'interrupteur « plages supplémentaires » d'un appareil est activé : chaque appareil choisit."
         },
         "description": "Tableau de bord Énergie : capteur de puissance réseau {grid}, capteur de puissance solaire {solar} (« - » = aucun utilisable ; un nombre = autant de capteurs réseau, pré-rempli seulement s'il n'y en a qu'un). Le tableau compte la puissance tirée du réseau en positif : « Mon compteur indique le soutirage en positif » est donc pré-réglé quand son capteur réseau est utilisé."
       }
     },
     "abort": {
       "already_configured": "solarprio est déjà configuré"
+    },
+    "error": {
+      "invalid": "Valeur invalide : vérifiez les plages d'heures creuses (par exemple 22:30-06:30) et qu'une limite d'abonnement est accompagnée du capteur de puissance de la maison."
     }
   },
   "options": {
@@ -109,7 +120,8 @@
           "ramp_up_w": "Plus grande montée à la fois (W)",
           "deadband_w": "Ignorer les variations inférieures à (W)",
           "offpeak_extra": "Plages heures creuses supplémentaires (facultatif, avec un interrupteur)",
-          "sanitary_forced_only": "Minimum sanitaire seulement en marche forcée"
+          "sanitary_forced_only": "Minimum sanitaire seulement en marche forcée",
+          "offpeak_site": "Suivre les heures creuses du site"
         },
         "data_description": {
           "entity_id": "Tout-ou-rien et réglable : l'entité à commuter ou régler. Batterie : l'entité number de la consigne de charge. Borne : l'entité number du courant de charge en ampères. Tâche : un assistant (input_boolean) que vos propres scripts lisent ; solarprio ne commute jamais une alimentation pour une tâche. N'utilisez pas une charge tout-ou-rien pour un ordinateur, un serveur ou un NAS : couper leur courant peut faire perdre des données.",
@@ -137,7 +149,8 @@
           "ramp_up_w": "La puissance ne monte jamais de plus que cela d'un coup : un gros surplus est suivi par paliers. 200 W est un bon début pour un gradateur. Laissez vide pour aucune limite.",
           "deadband_w": "Ne pas changer la puissance pour quelques watts : cela use le matériel et fait osciller la mesure. Passer à zéro ou en repartir n'est jamais ignoré.",
           "offpeak_extra": "Même format que les plages ci-dessus, par exemple 12:30-14:30 pour les heures creuses du midi. Elles ne comptent comme heures creuses que lorsque l'interrupteur « plages supplémentaires » de cet appareil est activé (créé par solarprio) : vous choisissez depuis Home Assistant de chauffer ou non le midi. Si vous renseignez aussi l'entité de signal, les deux doivent encore indiquer heures creuses.",
-          "sanitary_forced_only": "Le minimum sanitaire (voir « Minimum sanitaire » plus haut) ne chauffe depuis le réseau que lorsque l'interrupteur « marche forcée » de cet appareil est activé. Sans cette option, il chauffe automatiquement dès que l'eau est trop froide."
+          "sanitary_forced_only": "Le minimum sanitaire (voir « Minimum sanitaire » plus haut) ne chauffe depuis le réseau que lorsque l'interrupteur « marche forcée » de cet appareil est activé. Sans cette option, il chauffe automatiquement dès que l'eau est trop froide.",
+          "offpeak_site": "L'appareil est alimenté depuis le réseau pendant les heures creuses des Réglages (entité de signal, plages et plages supplémentaires) au lieu des siennes ci-dessous. Tout ce que vous renseignez ci-dessous pour cet appareil l'emporte sur les Réglages."
         }
       },
       "import_energy": {
@@ -195,7 +208,10 @@
           "sanitary_limited": "Minimum sanitaire (limité par l'abonnement)",
           "hot": "Chaud (maximum atteint)",
           "sensor_fault": "Sonde de température en défaut",
-          "disabled": "Désactivé"
+          "disabled": "Désactivé",
+          "forced": "Forcé",
+          "forced_limited": "Forcé (limité par l'abonnement)",
+          "no_cap": "Marche forcée refusée : réglez une limite d'abonnement"
         }
       }
     },

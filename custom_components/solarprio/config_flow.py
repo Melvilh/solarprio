@@ -20,6 +20,10 @@ from .const import (
     CONF_MARGIN,
     CONF_MODE,
     CONF_OFFPEAK_BUDGET,
+    CONF_OFFPEAK_ENTITY,
+    CONF_OFFPEAK_EXTRA,
+    CONF_OFFPEAK_VALUES,
+    CONF_OFFPEAK_WINDOWS,
     CONF_ON_STALE,
     CONF_PRODUCTION_ENTITY,
     CONF_STALE_AFTER,
@@ -34,7 +38,7 @@ from .const import (
 )
 from .core import DeviceKind
 from .energy import EnergyDashboard, async_read_energy_dashboard
-from .forms import clean_device, device_fields, merge_device
+from .forms import OFFPEAK_SIGNAL_DOMAINS, clean_device, clean_site, device_fields, merge_device
 
 SENSOR = selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor"))
 
@@ -107,9 +111,16 @@ class SolarPrioConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def async_step_entities(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         export = self._data[CONF_MODE] == MODE_EXPORT
+        errors: dict[str, str] = {}
         if user_input is not None:
-            self._data.update(user_input)
-            return self.async_create_entry(title="solarprio", data=self._data, options={CONF_DEVICES: []})
+            try:
+                # the same checks as the panel's Settings (the off-peak windows must be readable, the cap needs the house power)
+                cleaned = clean_site({**self._data, **user_input})
+            except ValueError as err:
+                errors["base" if str(err) not in user_input else str(err)] = "invalid"
+            else:
+                self._data.update(cleaned)
+                return self.async_create_entry(title="solarprio", data=self._data, options={CONF_DEVICES: []})
         energy = await async_read_energy_dashboard(self.hass)
         # The Energy dashboard counts power drawn from the grid as positive, so its grid sensor needs "invert".
         # The dashboard has no whole-house consumption, so the consumption sensor is never pre-filled.
@@ -130,6 +141,10 @@ class SolarPrioConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_STALE_AFTER, default=DEFAULT_STALE_AFTER): _number("s", 0, 3600),
                 vol.Required(CONF_ON_STALE, default=ON_STALE_OFF): _select([ON_STALE_OFF, ON_STALE_HOLD]),
                 vol.Required(CONF_MARGIN, default=0): _number("W", 0, 2000),
+                vol.Optional(CONF_OFFPEAK_ENTITY): _entity(list(OFFPEAK_SIGNAL_DOMAINS)),
+                vol.Optional(CONF_OFFPEAK_VALUES): str,
+                vol.Optional(CONF_OFFPEAK_WINDOWS): str,
+                vol.Optional(CONF_OFFPEAK_EXTRA): str,
                 vol.Required(CONF_OFFPEAK_BUDGET, default=0): _number("W", 0, 1_000_000),
                 vol.Optional(CONF_SUBSCRIPTION): _number("VA", 500, 100_000),
                 vol.Optional(CONF_HOUSE_ENTITY): SENSOR,
@@ -139,6 +154,7 @@ class SolarPrioConfigFlow(ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="entities",
             data_schema=vol.Schema(fields),
+            errors=errors,
             description_placeholders={
                 "grid": energy.grid_power or ("-" if energy.grid_sensors == 0 else str(energy.grid_sensors)),
                 "solar": energy.solar_power or "-",

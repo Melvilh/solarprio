@@ -79,6 +79,16 @@ a reading that does not show the last change yet is what makes a regulation over
 "old" while it is perfectly healthy: the panel then says *has not reported for N s*. Set the delay to 0 for such a sensor;
 a dead ESP still makes its sensors *unavailable*, which is detected.
 
+## Never over the meter (subscription limit)
+
+Everything that feeds a device from the grid on purpose (the sanitary minimum, the off-peak top-up, a forced run) stays inside
+your **subscription limit**. Set it in the panel's *Settings*: the *Subscription limit* (for example **5700 VA on a 6 kVA
+meter**, the meter's limit minus a margin) and the *House power sensor* (what the whole house draws, for example the Linky's
+apparent power). solarprio takes the rest of the house out of the limit, gives a device only the room that is left, lets go
+of everything at once on a clear overshoot, and feeds nothing from the grid if it cannot see the house. **Without a limit nothing
+keeps the house under the meter**: the panel warns you when you save a device that can be fed from the grid, and the forced run
+of a car or a battery is refused.
+
 ## The water heater controls (Home Assistant)
 
 These replace the switches and sensors you used to have on the router itself ("Forced run", "HC midi", "Is it hot", "Heating

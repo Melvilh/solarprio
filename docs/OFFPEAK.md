@@ -45,7 +45,38 @@ change, with no hours to maintain.
   (a text such as `HC..` / `HP..`), never an energy index (a number that only grows): the panel warns when the entity you pick
   reports a number.
 
-## Home Assistant
+## Off-peak hours for the whole site (Home Assistant)
+
+Your off-peak hours are the same for every device, so they are set **once**, in the panel's *Settings*:
+
+- *Off-peak signal*: the entity that tells the tariff (your Linky tariff period, `HC..` / `HP..`), and *States that mean off-peak*
+  (for example `HC*`).
+- *Off-peak windows*: for example `22:30-06:30` (your own night hours).
+- *Extra off-peak windows*: for example the midday hours `12:30-14:30`. They count only for the devices whose
+  `extra off-peak windows` switch is on, so each device chooses.
+
+Then each device **chooses** whether to use them: tick *Follow the site off-peak hours* in its form. A device that does not
+tick it is not fed in off-peak hours (it keeps only the surplus), which is what you want for a load that should never run from
+the grid. What a device sets itself (its own entity, its own windows) wins over the site's. When both a signal and windows are
+given, BOTH must say off-peak. The *Off-peak power budget* (also in the Settings) says how much power may be fed at once.
+
+Whatever feeds a device from the grid on purpose stays under your **subscription limit** (see [REGULATION.md](REGULATION.md)): set
+it, for example 5700 VA on a 6 kVA meter, with the house power sensor. The panel warns when a device can be fed from the grid
+and no limit is set.
+
+## Forced run of a car or a battery
+
+Every EV charger and every battery gets a switch `<device> forced run` (off by default, restored after a restart). When it is
+on, the device is charged **from the grid now**, at the most the subscription limit leaves free, up to its state-of-charge
+limit, and stops when the car is unplugged. It does not wait for the surplus nor for the off-peak hours. Three safeties:
+
+- it **needs a subscription limit**: without one the forced run is refused and the `mode` sensor says so;
+- a state-of-charge limit that cannot be checked (no SoC sensor) blocks it;
+- *Surplus only* forbids it.
+
+For a water heater the "forced run" switch is the sanitary one (*Sanitary minimum only on a forced run*), as before.
+
+## Home Assistant (a device with its own hours)
 
 *Configure* > add or edit a device (on/off, adjustable or EV charger; not a battery):
 

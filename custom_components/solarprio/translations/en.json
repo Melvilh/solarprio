@@ -22,7 +22,11 @@
           "offpeak_budget_w": "Off-peak power budget",
           "subscription_va": "House power limit, your subscription (VA)",
           "house_entity": "House power sensor (what the whole house draws)",
-          "emergency_import_w": "Emergency cut above this grid import (W)"
+          "emergency_import_w": "Emergency cut above this grid import (W)",
+          "offpeak_entity": "Off-peak signal (optional)",
+          "offpeak_values": "States that mean off-peak (optional)",
+          "offpeak": "Off-peak windows (optional)",
+          "offpeak_extra": "Extra off-peak windows (optional, with a switch per device)"
         },
         "data_description": {
           "margin_w": "Watts left unrouted so measurement noise and latency do not turn into grid import.",
@@ -30,13 +34,20 @@
           "subscription_va": "The most the house may draw. When set, everything solarprio feeds from the grid on purpose (off-peak, sanitary) is limited to what is left under this value after the rest of the house, and nothing is fed from the grid if the house power is unknown. Leave empty for no limit. Needs the house power sensor below.",
           "house_entity": "For example the power drawn from the grid on your meter. Needed for the limit above.",
           "emergency_import_w": "If more than this is drawn from the grid (not counting what is fed from the grid on purpose), every device running on the sun is switched off at once. Leave empty to turn it off.",
-          "stale_after_s": "Seconds without an update after which the measurement counts as lost. 0 = never judge by age, only by availability: use it when your sensor does not report a value that does not change (the panel then shows \"has not reported for N s\" for a perfectly healthy sensor)."
+          "stale_after_s": "Seconds without an update after which the measurement counts as lost. 0 = never judge by age, only by availability: use it when your sensor does not report a value that does not change (the panel then shows \"has not reported for N s\" for a perfectly healthy sensor).",
+          "offpeak_entity": "The entity that tells when the tariff is off-peak, for example your Linky tariff period (a sensor that reads HC.. or HP..), a binary sensor or a boolean. NOT an energy index (a number that only grows). Devices that follow the site off-peak hours use it.",
+          "offpeak_values": "Which states mean off-peak, comma separated. Leave empty for HC.. style tariff periods, \"on\" or \"true\". Example: HC*",
+          "offpeak": "Local time, 24 h, comma separated, for example 22:30-06:30 (a window may cross midnight). Devices that follow the site off-peak hours are fed in these windows. If you also give the signal entity, BOTH must say off-peak.",
+          "offpeak_extra": "More windows, for example the midday off-peak hours 12:30-14:30. They count only while the \"extra off-peak windows\" switch of a device is on, so each device can choose."
         },
         "description": "Energy dashboard: grid power sensor {grid}, solar power sensor {solar} (\"-\" = none usable; a number = that many grid sensors, pre-filled only when there is exactly one). The dashboard counts power drawn from the grid as positive, so \"My meter reports import as positive\" is pre-set when its grid sensor is used."
       }
     },
     "abort": {
       "already_configured": "solarprio is already configured"
+    },
+    "error": {
+      "invalid": "Invalid value: check the off-peak windows (for example 22:30-06:30), and that a subscription limit comes with the house power sensor."
     }
   },
   "options": {
@@ -109,7 +120,8 @@
           "ramp_up_w": "Largest step up (W)",
           "deadband_w": "Ignore changes smaller than (W)",
           "offpeak_extra": "Extra off-peak windows (optional, with a switch)",
-          "sanitary_forced_only": "Sanitary minimum only on a forced run"
+          "sanitary_forced_only": "Sanitary minimum only on a forced run",
+          "offpeak_site": "Follow the site off-peak hours"
         },
         "data_description": {
           "entity_id": "On/off and adjustable: the entity to switch or set. Battery: the number entity of the charge setpoint. EV charger: the number entity of the charging current in amps. Task: a helper (input_boolean) that your own scripts read; solarprio never switches a power supply for a task. Do not use an on/off load for a computer, server or NAS: cutting their power can lose data.",
@@ -137,7 +149,8 @@
           "ramp_up_w": "The power never rises by more than this at once, so a big surplus is followed in steps. 200 W is a good start for a dimmer. Leave empty for no limit.",
           "deadband_w": "Do not change the power for a few watts: it only wears the equipment and makes the measurement hunt. Going to or from zero is never ignored.",
           "offpeak_extra": "Same format as the windows above, for example 12:30-14:30 for the midday off-peak hours. They count as off-peak only while the \"extra windows\" switch of this device is on (created by solarprio), so you can choose from Home Assistant whether to heat at midday. If you also fill the signal entity, both must still say off-peak.",
-          "sanitary_forced_only": "The sanitary minimum (see \"Sanitary minimum\" above) heats from the grid only while the \"forced run\" switch of this device is on. Without this option it heats automatically whenever the water is too cold."
+          "sanitary_forced_only": "The sanitary minimum (see \"Sanitary minimum\" above) heats from the grid only while the \"forced run\" switch of this device is on. Without this option it heats automatically whenever the water is too cold.",
+          "offpeak_site": "The device is fed from the grid in the off-peak hours of the Settings (signal entity, windows and extra windows) instead of its own below. Anything you fill in below for this device wins over the Settings."
         }
       },
       "import_energy": {
@@ -195,7 +208,10 @@
           "sanitary_limited": "Sanitary minimum (limited by the subscription)",
           "hot": "Hot (maximum reached)",
           "sensor_fault": "Temperature sensor fault",
-          "disabled": "Disabled"
+          "disabled": "Disabled",
+          "forced": "Forced",
+          "forced_limited": "Forced (limited by the subscription)",
+          "no_cap": "Forced run refused: set a subscription limit"
         }
       }
     },

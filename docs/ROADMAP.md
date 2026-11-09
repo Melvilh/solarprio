@@ -12,6 +12,10 @@ a limit elsewhere in the documentation) and of ideas that came up. Pick one, ope
 
 ## Behaviour
 
+- **Battery arbitrage** (next, needs hardware to verify): charge a battery in off-peak hours and discharge it in peak hours.
+  The charge from the grid in off-peak hours and the discharge control are not done: they depend on the inverter (Victron ESS
+  setpoints, other brands) and should come as brand profiles.
+
 - Automatic 1-phase / 3-phase switching for EV chargers (hardware specific).
 - Battery discharge control and a two-stage battery priority (for example 30 % first, 100 % last).
 - EV departure time ("100 % by 7:00") on top of the surplus logic.

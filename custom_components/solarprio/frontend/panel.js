@@ -36,7 +36,8 @@ const T = {
     },
     modes: {
       solar: "solar", offpeak: "off-peak", sanitary: "sanitary minimum", offpeak_limited: "off-peak, limited by the subscription",
-      sanitary_limited: "sanitary minimum, limited by the subscription", hot: "water hot", sensor_fault: "temperature unknown: stopped",
+      sanitary_limited: "sanitary minimum, limited by the subscription", forced: "forced run", forced_limited: "forced run, limited by the subscription",
+      no_cap: "forced run refused: set a subscription limit", hot: "water hot", sensor_fault: "temperature unknown: stopped",
     },
     opt: { export: "Grid power (one sensor)", production: "Production and consumption", off: "Switch the loads off",
            hold: "Keep the current state", watts: "Watts", percent: "Percent" },
@@ -96,7 +97,8 @@ const T = {
     },
     modes: {
       solar: "solaire", offpeak: "heures creuses", sanitary: "minimum sanitaire", offpeak_limited: "heures creuses, limité par l'abonnement",
-      sanitary_limited: "minimum sanitaire, limité par l'abonnement", hot: "eau chaude", sensor_fault: "température inconnue : arrêt",
+      sanitary_limited: "minimum sanitaire, limité par l'abonnement", forced: "marche forcée", forced_limited: "marche forcée, limitée par l'abonnement",
+      no_cap: "marche forcée refusée : réglez une limite d'abonnement", hot: "eau chaude", sensor_fault: "température inconnue : arrêt",
     },
     opt: { export: "Puissance réseau (un capteur)", production: "Production et consommation", off: "Éteindre les charges",
            hold: "Garder l'état actuel", watts: "Watts", percent: "Pourcentage" },

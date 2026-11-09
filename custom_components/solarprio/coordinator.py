@@ -23,6 +23,10 @@ from .const import (
     CONF_INVERT,
     CONF_MARGIN,
     CONF_OFFPEAK_BUDGET,
+    CONF_OFFPEAK_ENTITY,
+    CONF_OFFPEAK_EXTRA,
+    CONF_OFFPEAK_VALUES,
+    CONF_OFFPEAK_WINDOWS,
     CONF_MODE,
     CONF_ON_STALE,
     CONF_PRODUCTION_ENTITY,
@@ -55,6 +59,25 @@ DEVICE_FIELDS = (
     "offpeak", "offpeak_extra", "reset_at", "done_below_w", "done_after_s", "offpeak_signal", "sanitary_forced_only",
     "temp_max_solar", "temp_max_offpeak", "temp_hysteresis", "temp_min", "surplus_only", "hold_s", "ramp_up_w", "deadband_w",
 )
+
+
+def with_site_offpeak(cfg: dict[str, Any], site: dict[str, Any]) -> dict[str, Any]:
+    """The device settings with the site's off-peak hours filled in, for a device that follows them.
+
+    What the device sets itself wins: a device with its own off-peak entity keeps it (and its states), one with its own windows
+    keeps them.
+    """
+    if not cfg.get("offpeak_site"):
+        return cfg
+    out = dict(cfg)
+    if not cfg.get("offpeak_entity") and site.get(CONF_OFFPEAK_ENTITY):
+        out["offpeak_entity"] = site[CONF_OFFPEAK_ENTITY]
+        out["offpeak_values"] = site.get(CONF_OFFPEAK_VALUES) or cfg.get("offpeak_values")
+    if not cfg.get("offpeak") and site.get(CONF_OFFPEAK_WINDOWS):
+        out["offpeak"] = site[CONF_OFFPEAK_WINDOWS]
+    if not cfg.get("offpeak_extra") and site.get(CONF_OFFPEAK_EXTRA):
+        out["offpeak_extra"] = site[CONF_OFFPEAK_EXTRA]
+    return out
 
 
 class MeasurementUnavailable(Exception):
@@ -90,7 +113,7 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self.device_cfgs: dict[str, dict[str, Any]] = {d["id"]: d for d in entry.options.get(CONF_DEVICES, [])}
         self.engine = Engine(
-            [build_device(d) for d in self.device_cfgs.values()],
+            [build_device(with_site_offpeak(d, self._conf)) for d in self.device_cfgs.values()],
             offpeak_budget_w=float(self._conf.get(CONF_OFFPEAK_BUDGET, 0) or 0),
             subscription_va=float(self._conf.get(CONF_SUBSCRIPTION) or 0) or None,
             emergency_import_w=float(self._conf.get(CONF_EMERGENCY) or 0) or None,
@@ -131,6 +154,7 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     def _read_reading(self, cfg: dict[str, Any]) -> DeviceReading | None:
         """Measured power, state of charge and plug state of a device, from its optional entities."""
+        cfg = with_site_offpeak(cfg, self._conf)  # a device that follows the site off-peak hours reads the site's signal
         measured = soc = connected = offpeak = temperature = None
         if state := self._read_optional(cfg.get("temp_entity")):
             try:

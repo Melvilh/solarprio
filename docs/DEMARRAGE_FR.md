@@ -75,6 +75,19 @@ développement > États*, puis ajustez le délai dans *Réglages* si besoin.
       custom_components.solarprio: debug
   ```
 
+## 4 bis. Régler le compteur et les heures creuses (important)
+
+Dans le panneau solarprio, bouton **Réglages** :
+- **Limite d'abonnement** et **Capteur de puissance de la maison** : par exemple 5700 VA pour un compteur 6 kVA, avec la puissance
+  apparente du Linky. Sans ces deux réglages, **rien ne garde la maison sous la limite du compteur** pour tout ce qui est
+  alimenté depuis le réseau (minimum sanitaire, heures creuses, marche forcée).
+- **Signal heures creuses** (la période tarifaire du Linky, `HC..` / `HP..`, pas l'index d'énergie), **Plages heures creuses** (nuit)
+  et **Plages supplémentaires** (midi) : réglés **une seule fois** pour tout le site.
+
+Ensuite, dans chaque appareil, cochez **Suivre les heures creuses du site** si vous voulez qu'il en profite. Une voiture ou une
+batterie a aussi un interrupteur **marche forcée** : elle charge depuis le réseau tout de suite, sous la limite d'abonnement et
+jusqu'à son niveau de charge maximal. Elle est refusée tant qu'aucune limite d'abonnement n'est réglée.
+
 ## 5. Aller plus loin
 
 - **Marge d'injection** : quelques dizaines de watts laissés non routés évitent que le bruit de mesure se transforme en

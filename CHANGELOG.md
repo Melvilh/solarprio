@@ -3,6 +3,16 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **Off-peak hours for the whole site**: the signal entity, the states, the windows and the extra windows are set once in the
+  Settings (and in the setup form). Each device chooses with *Follow the site off-peak hours*; what a device sets itself wins.
+- **Forced run of a car or a battery**: a `forced run` switch per EV charger and battery charges it from the grid now, inside the
+  subscription limit, up to its state-of-charge limit. It is refused (and the mode says `no_cap`) without a subscription limit.
+- A warning when a device that can be fed from the grid is saved without a subscription limit, and the off-peak entity that
+  reports a number (an energy index) is now flagged even when states were typed.
+
 ## [0.2.3] - 2026-11-09
 
 ### Fixed

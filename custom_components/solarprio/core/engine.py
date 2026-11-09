@@ -53,6 +53,7 @@ class Engine:
         self._emergency_import_w = emergency_import_w or None
         self._shed_until = -math.inf
         self._temp_fault: set[str] = set()
+        self._no_cap: set[str] = set()  # devices whose forced run is blocked for want of a subscription limit
         self._devices: dict[str, Device] = {}
         self._states: dict[str, DeviceState] = {}
         self._readings: dict[str, DeviceReading] = {}
@@ -314,24 +315,48 @@ class Engine:
             return dev.power_w if dev.power_w <= left else 0.0
         if dev.kind is DeviceKind.EV_CHARGER:
             return dev.quantize_power(min(dev.power_w, left))
+        if dev.kind is DeviceKind.BATTERY:
+            p = min(dev.power_w, left)
+            return p if p > 0 and p >= dev.min_power_w else 0.0
         return 0.0
 
-    def _grid_fed(self, now: float, local: datetime | None, house_w: float | None) -> tuple[dict[str, float], set[str], set[str]]:
+    def _force_candidate(self, dev: Device, state: DeviceState, reading: DeviceReading | None) -> bool:
+        """The user asked for a forced run of a car or a battery: charge from the grid now, up to the state-of-charge limit."""
+        if not (state.forced_run and dev.enabled) or dev.surplus_only or dev.id in self._temp_fault:
+            return False
+        if dev.kind not in (DeviceKind.EV_CHARGER, DeviceKind.BATTERY):
+            return False  # a water heater's forced run is the sanitary one (sanitary_forced_only)
+        if self._soc_blocked(dev, state, reading):
+            return False
+        return not (dev.kind is DeviceKind.EV_CHARGER and reading is not None and reading.connected is False)
+
+    def _grid_fed(
+        self, now: float, local: datetime | None, house_w: float | None
+    ) -> tuple[dict[str, float], set[str], set[str], set[str]]:
         """Devices fed from the grid on purpose now, with the power each gets.
 
-        Returns ``(power per device, sanitary ones, ones cut short by the subscription)``. A sanitary device that gets
-        nothing stays at nothing (it does not take the sun either); an off-peak one that gets nothing goes back to the
-        surplus.
+        Returns ``(power per device, sanitary ones, forced-run ones, ones cut short by the subscription)``. A sanitary device
+        that gets nothing stays at nothing (it does not take the sun either); a forced or off-peak one that gets nothing goes
+        back to the surplus. A forced run needs a subscription limit: without one nothing keeps the house under the meter.
         """
         fed: dict[str, float] = {}
         sanitary: set[str] = set()
+        forced: set[str] = set()
         limited: set[str] = set()
+        self._no_cap = set()
         if local is None:
-            return fed, sanitary, limited
+            return fed, sanitary, forced, limited
         ordered = sorted(self._devices.values(), key=lambda d: d.priority)
         sanitary_ids = [d.id for d in ordered if self._sanitary_candidate(d, self._states[d.id])]
+        forced_ids = [d.id for d in ordered if self._force_candidate(d, self._states[d.id], self._readings.get(d.id))]
+        if forced_ids and self._subscription_va is None:
+            self._no_cap, forced_ids = set(forced_ids), []
         offpeak_ids = self._top_up(now, local)
-        wanted = sanitary_ids + [d.id for d in ordered if d.id in offpeak_ids and d.id not in sanitary_ids]
+        wanted = (
+            sanitary_ids
+            + [i for i in forced_ids if i not in sanitary_ids]
+            + [d.id for d in ordered if d.id in offpeak_ids and d.id not in sanitary_ids and d.id not in forced_ids]
+        )
         cap = self._cap_w(now, house_w)
         left = math.inf if cap is None else cap
         for dev_id in wanted:
@@ -343,6 +368,9 @@ class Engine:
             if dev_id in sanitary_ids:
                 fed[dev_id] = p
                 sanitary.add(dev_id)
+            elif dev_id in forced_ids and p > 0:
+                fed[dev_id] = p
+                forced.add(dev_id)
             elif p > 0:
                 fed[dev_id] = p
             else:
@@ -350,7 +378,7 @@ class Engine:
             if p < dev.power_w:
                 limited.add(dev_id)
             left -= p
-        return fed, sanitary, limited
+        return fed, sanitary, forced, limited
 
     # ---- the control step ----
 
@@ -377,7 +405,7 @@ class Engine:
         """
         self._track_signals()
         self._track_temperatures()
-        fed, sanitary, limited = self._grid_fed(now, local, house_w)
+        fed, sanitary, forced, limited = self._grid_fed(now, local, house_w)
         for dev_id, state in self._states.items():
             state.forced = fed.get(dev_id, 0.0) > 0
         remaining = max(available_w - sum(fed.values()), 0.0)
@@ -397,7 +425,7 @@ class Engine:
                 power = fed[dev.id] if fed[dev.id] <= state.power_w else self._apply_timers(dev, state, fed[dev.id], now)
                 self._commit(state, power, now)
                 commands[dev.id] = power
-                base = "sanitary" if dev.id in sanitary else "offpeak"
+                base = "sanitary" if dev.id in sanitary else "forced" if dev.id in forced else "offpeak"
                 state.reason = base + ("_limited" if dev.id in limited else "")
                 continue  # its power was already taken out of ``remaining``
             reason = "idle"
@@ -416,6 +444,8 @@ class Engine:
                 power = self._slew(dev, state, power, now)
             self._commit(state, power, now)
             commands[dev.id] = power
+            if reason == "idle" and power <= 0 and dev.id in self._no_cap:
+                reason = "no_cap"  # a forced run was asked for but no subscription limit is set: nothing is fed from the grid
             state.reason = reason if power <= 0 or reason != "idle" else "solar"
             remaining = max(remaining - self._consumed(dev, state, reading, power, now), 0.0)
 

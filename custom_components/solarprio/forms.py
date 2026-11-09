@@ -22,6 +22,10 @@ from .const import (
     CONF_MARGIN,
     CONF_MODE,
     CONF_OFFPEAK_BUDGET,
+    CONF_OFFPEAK_ENTITY,
+    CONF_OFFPEAK_EXTRA,
+    CONF_OFFPEAK_VALUES,
+    CONF_OFFPEAK_WINDOWS,
     CONF_ON_STALE,
     CONF_PRODUCTION_ENTITY,
     CONF_STALE_AFTER,
@@ -35,6 +39,7 @@ from .const import (
 )
 from .coordinator import DEVICE_FIELDS, build_device
 from .core import DeviceKind
+from .core.models import parse_window
 from .core.profiles import ha_presets
 
 OFFPEAK_SIGNAL_DOMAINS = ("binary_sensor", "sensor", "input_boolean", "switch", "select", "input_select")
@@ -157,6 +162,7 @@ def device_fields(kind: str, next_priority: int = 1) -> list[Field]:
 
     if kind != DeviceKind.BATTERY.value:
         fields += [
+            _flag("offpeak_site"),
             _entity("offpeak_entity", OFFPEAK_SIGNAL_DOMAINS),
             _text("offpeak", advanced=True),
             _text("offpeak_extra", advanced=True),
@@ -185,6 +191,10 @@ def site_fields() -> list[Field]:
         _number(CONF_STALE_AFTER, "s", DEFAULT_STALE_AFTER, 0, 3600, advanced=True),
         _select(CONF_ON_STALE, (ON_STALE_OFF, ON_STALE_HOLD), ON_STALE_OFF, advanced=True),
         _number(CONF_MARGIN, "W", 0, 0, 2000),
+        _entity(CONF_OFFPEAK_ENTITY, OFFPEAK_SIGNAL_DOMAINS),
+        _text(CONF_OFFPEAK_VALUES, advanced=True),
+        _text(CONF_OFFPEAK_WINDOWS),
+        _text(CONF_OFFPEAK_EXTRA, advanced=True),
         _number(CONF_OFFPEAK_BUDGET, "W", 0, advanced=True),
         _number(CONF_SUBSCRIPTION, "VA", None, 500, 100_000, required=False),
         _entity(CONF_HOUSE_ENTITY, sensor),
@@ -218,7 +228,8 @@ def clean_device(kind: str, user_input: dict[str, Any]) -> dict[str, Any]:
     device.update(kind=kind, priority=int(user_input["priority"]))
     if any(device.get(k) is not None for k in ("temp_max_solar", "temp_max_offpeak", "temp_min")) and not device.get("temp_entity"):
         raise ValueError("temperature limits need a temperature sensor")
-    if (device.get("offpeak") or device.get("offpeak_entity")) and not device.get("measured_entity") and kind != DeviceKind.TASK.value:
+    follows = device.get("offpeak") or device.get("offpeak_entity") or device.get("offpeak_site")
+    if follows and not device.get("measured_entity") and kind != DeviceKind.TASK.value:
         raise ValueError("off-peak top-up needs a measured power entity")  # it could not tell when the device is finished
     if "phases" in device:
         device["phases"] = int(device["phases"])
@@ -281,6 +292,18 @@ def clean_site(user_input: dict[str, Any]) -> dict[str, Any]:
             out[f.name] = value
         elif f.type == "boolean":
             out[f.name] = bool(value)
+        elif f.type == "text":
+            text = str(value).strip() if value is not None else ""
+            if not text:
+                continue
+            if f.name in (CONF_OFFPEAK_WINDOWS, CONF_OFFPEAK_EXTRA):
+                try:
+                    for window in text.replace(";", ",").split(","):
+                        if window.strip():
+                            parse_window(window.strip())
+                except ValueError:
+                    raise ValueError(f.name) from None
+            out[f.name] = text
     if out.get(CONF_SUBSCRIPTION) and not out.get(CONF_HOUSE_ENTITY):
         raise ValueError(CONF_HOUSE_ENTITY)  # the cap needs to know what the house draws
     return out

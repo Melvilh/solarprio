@@ -63,7 +63,8 @@ class StatusSensor(_Base):
         return self.coordinator.data["status"] if self.coordinator.data else None
 
 
-MODES = ["idle", "solar", "offpeak", "offpeak_limited", "sanitary", "sanitary_limited", "hot", "sensor_fault", "disabled"]
+MODES = ["idle", "solar", "offpeak", "offpeak_limited", "sanitary", "sanitary_limited", "forced", "forced_limited", "no_cap", "hot",
+         "sensor_fault", "disabled"]
 
 
 class HeatingModeSensor(_Base):
