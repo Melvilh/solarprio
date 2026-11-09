@@ -363,6 +363,48 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             controls["extra_windows"] = state.extra_on
         return controls
 
+    # ---- the mode the user chooses for a device: off, router only, router + off-peak hours, forced run ----
+
+    def available_modes(self, device_id: str) -> list[str]:
+        """The choices that make sense for this device. "off" and "router" always; "router_offpeak" when it can use off-peak hours
+        (the Settings have some); "forced" when it has a forced run (a car, a battery, a heater with its sanitary forced run)."""
+        controls = self.controls(device_id)
+        modes = ["off", "router"]
+        if "offpeak" in controls:
+            modes.append("router_offpeak")
+        if "forced_run" in controls:
+            modes.append("forced")
+        return modes
+
+    def current_mode(self, device_id: str) -> str:
+        """What the user chose, read from the switches themselves (so the selector, the switches and the panel always agree)."""
+        if not self.device_cfgs[device_id].get("enabled", True):
+            return "off"
+        controls = self.controls(device_id)
+        if controls.get("forced_run"):
+            return "forced"
+        if controls.get("offpeak"):
+            return "router_offpeak"
+        return "router"
+
+    def set_mode(self, device_id: str, mode: str) -> bool:
+        """Choose the mode of a device. It only flips what already exists: its on/off state and its switches. False if not offered."""
+        if mode not in self.available_modes(device_id):
+            return False
+        enabled = mode != "off"
+        cfg = self.device_cfgs[device_id]
+        if bool(cfg.get("enabled", True)) != enabled:
+            devices = [{**d, "enabled": enabled} if d["id"] == device_id else d for d in self.device_cfgs.values()]
+            self.hass.config_entries.async_update_entry(self.config_entry, options={**self.config_entry.options, CONF_DEVICES: devices})
+            self.engine.set_enabled(device_id, enabled)  # at once; the options listener finds nothing left to change
+            self.device_cfgs[device_id] = {**cfg, "enabled": enabled}
+        controls = self.controls(device_id)
+        if "forced_run" in controls:
+            self.set_forced_run(device_id, mode == "forced")
+        if "offpeak" in controls and mode in ("router", "router_offpeak"):
+            self.set_offpeak_enabled(device_id, mode == "router_offpeak")
+        return True
+
     def set_control(self, device_id: str, control: str, on: bool) -> bool:
         """Set one of the switches of a device (see ``controls``). False when the device has no such switch."""
         if control not in self.controls(device_id):
@@ -425,6 +467,7 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "temperature_c": reading.temperature if reading else None,
         }
         out["controls"] = self.controls(cfg["id"])
+        out["mode_choice"], out["mode_choices"] = self.current_mode(cfg["id"]), self.available_modes(cfg["id"])
         if cfg["kind"] == DeviceKind.EV_CHARGER.value:
             out["current_a"] = round(self.engine.device(cfg["id"]).current_for(cmd_w), 1)
         return out

@@ -240,6 +240,17 @@
       "offpeak_hours": {
         "name": "{device} heures creuses"
       }
+    },
+    "select": {
+      "device_mode": {
+        "name": "{device} choix du mode",
+        "state": {
+          "off": "Arrêt",
+          "router": "Routeur seul",
+          "router_offpeak": "Routeur + heures creuses",
+          "forced": "Marche forcée"
+        }
+      }
     }
   }
 }

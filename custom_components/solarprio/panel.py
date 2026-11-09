@@ -30,7 +30,7 @@ def _asset_version() -> str:
 async def async_setup_panel_api(hass: HomeAssistant) -> None:
     """Once per HA run: serve the panel file and register websocket commands."""
     await hass.http.async_register_static_paths([StaticPathConfig(PANEL_STATIC_URL, str(PANEL_JS), cache_headers=False)])
-    for handler in (ws_state, ws_reorder, ws_set_device_enabled, ws_set_device_control, ws_set_routing, ws_device_form, ws_device_save,
+    for handler in (ws_state, ws_reorder, ws_set_device_enabled, ws_set_device_control, ws_set_device_mode, ws_set_routing, ws_device_form, ws_device_save,
                     ws_device_remove, ws_settings_form, ws_settings_save):
         websocket_api.async_register_command(hass, handler)
 
@@ -136,6 +136,28 @@ async def ws_set_device_control(hass: HomeAssistant, connection: websocket_api.A
         connection.send_error(msg["id"], "no_such_control", "this device has no such switch")
         return
     coordinator.async_update_listeners()  # the entities of the switches follow at once, and their state is what is restored later
+    connection.send_result(msg["id"], coordinator.snapshot())
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "solarprio/set_device_mode", vol.Required("device_id"): str,
+     vol.Required("mode"): vol.In(["off", "router", "router_offpeak", "forced"])}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_set_device_mode(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Choose the mode of a device from the panel: off, router only, router + off-peak hours, forced run."""
+    coordinator = _coordinator(hass)
+    if coordinator is None:
+        _not_configured(connection, msg)
+        return
+    if msg["device_id"] not in coordinator.device_cfgs:
+        connection.send_error(msg["id"], "unknown_device", "unknown device")
+        return
+    if not coordinator.set_mode(msg["device_id"], msg["mode"]):
+        connection.send_error(msg["id"], "no_such_mode", "this device does not offer that mode")
+        return
+    coordinator.async_update_listeners()
     connection.send_result(msg["id"], coordinator.snapshot())
 
 

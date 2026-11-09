@@ -36,6 +36,8 @@ This software switches electrical loads. It is **not a safety device** and comes
   [docs/PROFILES.md](docs/PROFILES.md).
 - **Many devices:** any number, started together when the surplus allows; setup pre-filled from the Home Assistant Energy
   dashboard, with import and copy of devices. See [docs/MANY_DEVICES.md](docs/MANY_DEVICES.md).
+- **A mode to choose for each device:** off, router only, router + off-peak hours, or a forced run, on its row in the panel and as
+  an entity.
 - **Router and manager:** the off-peak hours are set once for the whole site and each device chooses to follow them; a forced
   run charges a car or a battery from the grid on demand; everything fed from the grid stays under your subscription limit.
 - **Off-peak top-up:** during your off-peak hours a device is fed from the grid until it stops consuming (a hot water

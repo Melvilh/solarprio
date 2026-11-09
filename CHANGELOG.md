@@ -3,6 +3,15 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **A mode to choose for each device**, on its row in the panel and as a `mode choice` selector entity: **Off**, **Router only**,
+  **Router + off-peak hours**, **Forced run**. Only the choices the device can do are offered. The choice just flips what already
+  exists (the device's on/off state and its switches), so the selector, the switches and the panel always agree; the `mode`
+  sensor still shows what the device is actually doing. The safeties stay behind the choice (a forced run without a
+  subscription limit is still refused).
+
 ## [0.3.2] - 2026-11-09
 
 ### Added

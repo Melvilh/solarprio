@@ -51,6 +51,8 @@ const T = {
     offpeak: { heating: "off-peak: running", done: "off-peak: finished", waiting: "off-peak: waiting" },
     offpeakMode: { router_offpeak: "router + off-peak hours", router_only: "router only" },
     controls: { offpeak: "Off-peak hours", forced_run: "Forced run", extra_windows: "Extra off-peak windows" },
+    modeChoice: "Mode",
+    modeChoices: { off: "Off", router: "Router only", router_offpeak: "Router + off-peak hours", forced: "Forced run" },
     feedback: "Report a problem, suggest an improvement or ask for your hardware",
     disabled: "Disabled",
     error: "Could not save, order restored.",
@@ -115,6 +117,8 @@ const T = {
     offpeak: { heating: "heures creuses : en cours", done: "heures creuses : terminé", waiting: "heures creuses : en attente" },
     offpeakMode: { router_offpeak: "routeur + heures creuses", router_only: "routeur seul" },
     controls: { offpeak: "Heures creuses", forced_run: "Marche forcée", extra_windows: "Plages supplémentaires" },
+    modeChoice: "Mode",
+    modeChoices: { off: "Arrêt", router: "Routeur seul", router_offpeak: "Routeur + heures creuses", forced: "Marche forcée" },
     feedback: "Signaler un problème, proposer une amélioration ou demander votre matériel",
     disabled: "Désactivé",
     error: "Enregistrement impossible, ordre restauré.",
@@ -150,7 +154,8 @@ const STYLE = `
   .status .detail { display: block; font-size: 12px; margin-top: 4px; word-break: break-all; }
   .status .hint2 { display: block; font-size: 12px; margin-top: 4px; font-style: italic; }
   .hint { color: var(--secondary-text-color); font-size: 14px; margin: 0 0 12px; }
-  .ctrls { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 8px; }
+  .ctrls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin-top: 8px; }
+  .modes { display: flex; flex-wrap: wrap; gap: 6px; }
   .ctrl { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--primary-text-color); cursor: pointer; }
   .feedback { margin: 16px 0 0; font-size: 13px; color: var(--secondary-text-color); text-align: center; }
   .feedback a { color: var(--primary-color); }
@@ -317,6 +322,20 @@ class SolarPrioPanel extends HTMLElement {
     if (failed) this._toast(this._t.error);
   }
 
+  async _setMode(deviceId, mode) {
+    this._busy = true;
+    let failed = false;
+    try {
+      this._state = await this._call({ type: "solarprio/set_device_mode", device_id: deviceId, mode });
+    } catch (_) {
+      failed = true;
+    } finally {
+      this._busy = false;
+      this._render();
+    }
+    if (failed) this._toast(this._t.error);
+  }
+
   async _setControl(deviceId, control, on) {
     this._busy = true;
     let failed = false;
@@ -409,7 +428,7 @@ class SolarPrioPanel extends HTMLElement {
     const key = JSON.stringify([
       t.title,
       this._notConfigured,
-      s && s.devices.map((d) => [d.id, d.name, d.entity_id, d.power_w, Object.keys(d.controls || {})]),
+      s && s.devices.map((d) => [d.id, d.name, d.entity_id, d.power_w, Object.keys(d.controls || {}), d.mode_choices || []]),
     ]);
     if (key === this._key && this.shadowRoot.querySelector(".wrap")) {
       this._patch();
@@ -419,17 +438,19 @@ class SolarPrioPanel extends HTMLElement {
     this._build();
   }
 
-  /** The switches of a device that matter day to day (off-peak hours, forced run...), the same as its entities. */
+  /** What matters day to day, on the device's row: the mode to choose (off, router only, router + off-peak hours, forced run),
+   *  and the extra off-peak windows switch when the device has it. The same as its entities. */
   _controlsHtml(d) {
     const t = this._t;
-    const names = Object.keys(d.controls || {});
-    if (!names.length) return "";
-    const items = names
-      .map(
-        (c) => `<label class="ctrl"><ha-switch class="ctl" data-id="${esc(d.id)}" data-control="${c}" aria-label="${t.controls[c]} ${esc(d.name)}"></ha-switch><span>${t.controls[c]}</span></label>`,
-      )
+    const choices = d.mode_choices || [];
+    const buttons = choices
+      .map((m) => `<ha-button class="mode-btn" size="small" data-id="${esc(d.id)}" data-mode="${m}" appearance="outlined">${t.modeChoices[m]}</ha-button>`)
       .join("");
-    return `<div class="ctrls">${items}</div>`;
+    const extra =
+      d.controls && "extra_windows" in d.controls
+        ? `<label class="ctrl"><ha-switch class="ctl" data-id="${esc(d.id)}" data-control="extra_windows" aria-label="${t.controls.extra_windows} ${esc(d.name)}"></ha-switch><span>${t.controls.extra_windows}</span></label>`
+        : "";
+    return buttons || extra ? `<div class="ctrls"><div class="modes" role="group" aria-label="${t.modeChoice}">${buttons}</div>${extra}</div>` : "";
   }
 
   _build() {
@@ -555,6 +576,12 @@ class SolarPrioPanel extends HTMLElement {
       set(row.querySelector(".power"), fmtW(d.cmd_w));
       const box = row.querySelector(".dev-enabled");
       if (box.checked !== d.enabled) box.checked = d.enabled;
+      row.querySelectorAll(".mode-btn").forEach((b) => {
+        const picked = b.dataset.mode === d.mode_choice;
+        const want = picked ? "filled" : "outlined";
+        if (b.getAttribute("appearance") !== want) b.setAttribute("appearance", want);
+        b.setAttribute("aria-pressed", String(picked));
+      });
       row.querySelectorAll(".ctl").forEach((sw) => {
         const on = !!(d.controls && d.controls[sw.dataset.control]);
         if (sw.checked !== on) sw.checked = on;
@@ -578,6 +605,7 @@ class SolarPrioPanel extends HTMLElement {
     root.querySelectorAll(".up").forEach((b) => b.addEventListener("click", () => !b.disabled && this._move(Number(b.dataset.index), -1)));
     root.querySelectorAll(".down").forEach((b) => b.addEventListener("click", () => !b.disabled && this._move(Number(b.dataset.index), 1)));
     root.querySelectorAll(".dev-enabled").forEach((c) => c.addEventListener("change", () => this._setEnabled(c.dataset.id, c.checked)));
+    root.querySelectorAll(".mode-btn").forEach((b) => b.addEventListener("click", () => this._setMode(b.dataset.id, b.dataset.mode)));
     root.querySelectorAll(".ctl").forEach((c) =>
       c.addEventListener("change", () => this._setControl(c.dataset.id, c.dataset.control, c.checked)),
     );

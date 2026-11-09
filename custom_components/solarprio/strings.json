@@ -240,6 +240,17 @@
       "offpeak_hours": {
         "name": "{device} off-peak hours"
       }
+    },
+    "select": {
+      "device_mode": {
+        "name": "{device} mode choice",
+        "state": {
+          "off": "Off",
+          "router": "Router only",
+          "router_offpeak": "Router + off-peak hours",
+          "forced": "Forced run"
+        }
+      }
     }
   }
 }

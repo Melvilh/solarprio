@@ -60,8 +60,10 @@ Then each device **chooses**, with its own switch **"off-peak hours"** (created 
 - **router + off-peak hours** (switch on): the surplus first, and the off-peak hours of the Settings in addition;
 - **router only** (switch off): only the surplus, which is what you want for a load that should never run from the grid.
 
-The panel shows which one each device is in, and has the same switch on the device's row, so you can change it there or from
-the device's entities. The switch starts **off** (the router only) and keeps its state across restarts, so
+The panel shows which one each device is in. You can change it on the device's row, where a **mode choice** offers the choices
+that device can do: **Off**, **Router only**, **Router + off-peak hours** and **Forced run**. The same choice is the `mode choice`
+selector of the device's entities, next to its switches: the three always agree, because the choice only flips the device's
+on/off state and its switches. (The `mode` sensor is different: it shows what the device is actually doing now.) The switch starts **off** (the router only) and keeps its state across restarts, so
 nothing is fed from the grid until you ask. The hours themselves are only in the Settings: a device form has no off-peak
 settings. When both a signal and windows are given, BOTH must say off-peak; with the signal alone, every off-peak period of the
 tariff counts (night and midday). **The windows are optional**: they are only needed to tell the night from the midday, so that

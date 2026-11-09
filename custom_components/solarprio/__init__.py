@@ -13,7 +13,7 @@ from .const import CONF_DEVICES, DOMAIN
 from .coordinator import SolarPrioCoordinator
 from .panel import async_register_panel, async_remove_panel, async_setup_panel_api
 
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.SENSOR, Platform.SWITCH]
+PLATFORMS = [Platform.BINARY_SENSOR, Platform.SELECT, Platform.SENSOR, Platform.SWITCH]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
