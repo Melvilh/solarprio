@@ -19,7 +19,7 @@ from .core.profiles import localized
 from .forms import PRESETS, Field, clean_device, clean_site, device_fields, merge_device, site_fields
 
 PANEL_JS = Path(__file__).parent / "frontend" / "panel.js"
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 
 
 def _asset_version() -> str:

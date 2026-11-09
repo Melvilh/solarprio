@@ -3,7 +3,7 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.2] - 2026-11-09
 
 ### Added
 - **The day-to-day switches are in the panel**: each device's row has its own switches (off-peak hours, forced run, extra off-peak
