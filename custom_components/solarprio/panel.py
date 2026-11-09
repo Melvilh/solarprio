@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from pathlib import Path
 from typing import Any
 
@@ -11,7 +12,7 @@ from homeassistant.components import frontend, panel_custom, websocket_api
 from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant, callback
 
-from .const import CONF_DEVICES, DOMAIN, PANEL_STATIC_URL, PANEL_URL_PATH
+from .const import CONF_DEVICES, CONF_SUBSCRIPTION, DOMAIN, PANEL_STATIC_URL, PANEL_URL_PATH
 from .coordinator import SolarPrioCoordinator
 from .core import DeviceKind
 from .core.profiles import localized
@@ -190,18 +191,26 @@ async def ws_device_form(hass: HomeAssistant, connection: websocket_api.ActiveCo
     connection.send_result(msg["id"], {"fields": fields, "values": values, "kinds": kinds, "presets": presets})
 
 
-def _warnings(hass: HomeAssistant, device: dict[str, Any]) -> list[str]:
-    """Mistakes that are valid but certainly wrong, spotted from the current state of the chosen entities."""
+def _warnings(hass: HomeAssistant, device: dict[str, Any], coordinator: Any = None) -> list[str]:
+    """Mistakes that are valid but certainly wrong, spotted from the current state of the chosen entities and the settings."""
     warnings = []
     entity = device.get("offpeak_entity")
     state = hass.states.get(entity) if entity else None
-    if state is not None and not device.get("offpeak_values"):
+    if state is not None:
         try:
             float(state.state)
         except ValueError:
             pass
-        else:  # a number is never "HC": it is an index or a price, which only grows or moves
-            warnings.append("offpeak_numeric")
+        else:
+            # a number is never "HC": it is an index or a price. Only numeric states listed on purpose (a price level) are fine.
+            wanted = [v.strip() for v in str(device.get("offpeak_values") or "").replace(";", ",").split(",") if v.strip()]
+            if not any(re.fullmatch(r"-?[\d.]+", v) for v in wanted):
+                warnings.append("offpeak_numeric")
+    feeds_grid = not device.get("surplus_only") and (
+        device.get("offpeak") or device.get("offpeak_entity") or device.get("temp_min") is not None
+    )
+    if feeds_grid and coordinator is not None and not coordinator._conf.get(CONF_SUBSCRIPTION):
+        warnings.append("no_subscription_cap")  # nothing then keeps the house under the meter's limit
     return warnings
 
 
@@ -227,7 +236,7 @@ def ws_device_save(hass: HomeAssistant, connection: websocket_api.ActiveConnecti
         return
     devices = merge_device(list(coordinator.device_cfgs.values()), device, editing)
     _save_devices(hass, coordinator, devices)
-    connection.send_result(msg["id"], {"saved": True, "warnings": _warnings(hass, device)})
+    connection.send_result(msg["id"], {"saved": True, "warnings": _warnings(hass, device, coordinator)})
 
 
 @websocket_api.websocket_command({vol.Required("type"): "solarprio/device_remove", vol.Required("device_id"): str})

@@ -210,11 +210,11 @@ async def test_a_tariff_entity_that_is_a_number_is_flagged_as_probably_the_wrong
                 "measured_entity": POWER, "min_on_s": 0, "min_off_s": 0}
         index = await ws(client, type="solarprio/device_save", kind="proportional",
                          values={**base, "offpeak_entity": "sensor.linky_heures_creuses_index"})
-        assert index["success"] and index["result"]["warnings"] == ["offpeak_numeric"]  # saved, but the user is told
+        assert index["success"] and "offpeak_numeric" in index["result"]["warnings"]  # saved, but the user is told
         await hass.async_block_till_done()
         period = await ws(client, type="solarprio/device_save", kind="proportional",
                           values={**base, "name": "ECS 2", "offpeak_entity": "sensor.linky_periode", "offpeak_values": "HC*"})
-        assert period["result"]["warnings"] == []
+        assert "offpeak_numeric" not in period["result"]["warnings"]
 
 
 async def test_the_presets_fill_a_new_water_heater_form_and_pass_the_validation(hass: HomeAssistant, hass_ws_client):
@@ -247,3 +247,45 @@ async def test_the_presets_fill_a_new_water_heater_form_and_pass_the_validation(
         assert (proportional["hold_s"], proportional["ramp_up_w"], proportional["deadband_w"]) == (8, 200, 15)
         unknown = await ws(client, type="solarprio/device_form", kind="proportional", preset="toaster")
         assert not unknown["success"]
+
+
+async def test_saving_a_grid_fed_device_without_a_subscription_limit_warns_and_a_numeric_off_peak_entity_always_warns(
+    hass: HomeAssistant, hass_ws_client
+):
+    world = World(hass, devices=[], local=datetime(2026, 11, 10, 17, 0))
+    p1, p2 = world.patches()
+    with p1, p2:
+        await setup(hass, data=DATA, devices=[])  # no subscription limit in DATA
+        client = await hass_ws_client(hass)
+        hass.states.async_set("sensor.index_hc", "35507504.0", {"unit_of_measurement": "Wh"})
+        base = {"name": "ECS", "entity_id": SETPOINT, "priority": 1, "power_w": 2400, "measured_entity": POWER,
+                "temp_entity": TEMP, "temp_max_solar": 65, "scale": "watts"}
+        # a sanitary minimum feeds the heater from the grid: no cap, so a warning
+        saved = await ws(client, type="solarprio/device_save", kind="proportional", values={**base, "temp_min": 40})
+        assert saved["result"]["warnings"] == ["no_subscription_cap"]
+        # surplus only never feeds from the grid: no warning
+        saved = await ws(client, type="solarprio/device_save", kind="proportional", device_id="ecs",
+                         values={**base, "temp_min": 40, "surplus_only": True})
+        assert saved["result"]["warnings"] == []
+        # a numeric index is flagged even when states were typed (HC* can never match a number)
+        saved = await ws(client, type="solarprio/device_save", kind="proportional", device_id="ecs",
+                         values={**base, "surplus_only": True, "offpeak_entity": "sensor.index_hc", "offpeak_values": "HC*"})
+        assert "offpeak_numeric" in saved["result"]["warnings"]
+        # a price level typed as a number on purpose is fine
+        saved = await ws(client, type="solarprio/device_save", kind="proportional", device_id="ecs",
+                         values={**base, "surplus_only": True, "offpeak_entity": "sensor.index_hc", "offpeak_values": "35507504.0"})
+        assert "offpeak_numeric" not in saved["result"]["warnings"]
+
+
+async def test_with_a_subscription_limit_there_is_no_cap_warning(hass: HomeAssistant, hass_ws_client):
+    from .test_regulation import SITE
+
+    world = World(hass, data=SITE, devices=[], local=datetime(2026, 11, 10, 17, 0))
+    p1, p2 = world.patches()
+    with p1, p2:
+        await setup(hass, data=SITE, devices=[])
+        client = await hass_ws_client(hass)
+        saved = await ws(client, type="solarprio/device_save", kind="proportional", values={
+            "name": "ECS", "entity_id": SETPOINT, "priority": 1, "power_w": 2400, "measured_entity": POWER, "temp_entity": TEMP,
+            "temp_max_solar": 65, "temp_min": 40, "scale": "watts"})
+        assert saved["result"]["warnings"] == []
