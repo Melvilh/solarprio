@@ -148,6 +148,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/ARCHITECTURE.md](docs/ARCHITECT
 
 ## Make it work with your hardware
 
+Something does not work, should work differently, or you want your hardware supported? The panel has a link at the bottom, and
+[the issue forms](https://github.com/Melvilh/solarprio/issues/new/choose) (English or French) send your request to the right
+place: a problem, an improvement, or "make it work with my hardware".
+
 The project is meant to grow with what people own. A brand- or model-specific profile (one JSON file) or a tested
 configuration and a short page is already a contribution (no code needed): [docs/PROFILES.md](docs/PROFILES.md),
 [docs/ADDING_COMPATIBILITY.md](docs/ADDING_COMPATIBILITY.md). What is known to work, and how well it

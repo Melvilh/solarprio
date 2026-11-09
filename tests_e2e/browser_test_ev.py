@@ -2,7 +2,7 @@
 import json
 import threading
 
-from common import browser_tokens, num, set_state, state, start_meter, wait, wait_no_view_transition
+from common import api, browser_tokens, num, set_state, state, start_meter, wait, wait_no_view_transition
 from playwright.sync_api import sync_playwright
 
 SURPLUS = 5000.0
@@ -44,6 +44,20 @@ with sync_playwright() as p:
     wait(lambda: "8 A" in page.locator("solarprio-panel li.row:nth-child(2) .sub").inner_text(), what="panel shows 8 A")
     wait(lambda: "SoC 50 %" in page.locator("solarprio-panel li.row:nth-child(1) .sub").inner_text(), what="panel shows battery SoC")
     page.screenshot(path="panel_ev_a.png")
+
+    # the day-to-day switches of a device are in its row, and they are the same as its entities: the car has a forced run
+    def forced_entities():
+        return [x["state"] for x in api("GET", "/api/states") if x["entity_id"].startswith("switch.") and "forced_run" in x["entity_id"] and "borne" in x["entity_id"]]
+
+    forced = page.locator('solarprio-panel li.row:nth-child(2) ha-switch.ctl[data-control="forced_run"]')
+    assert forced.count() == 1, "the EV charger row has a forced run switch"
+    assert page.locator('solarprio-panel li.row:nth-child(3) ha-switch.ctl').count() == 0, "a plain pump has none"
+    assert forced_entities() == ["off"]
+    forced.click()
+    wait(lambda: forced_entities() == ["on"], what="the forced run entity follows the panel")
+    forced.click()
+    wait(lambda: forced_entities() == ["off"], what="and goes back")
+    print("a2. forced run switch of the car works from the panel")
 
     # b. unplug the car: it stops, the surplus it freed goes to the pump
     set_state("input_boolean", "input_boolean.car_plugged", on=False)

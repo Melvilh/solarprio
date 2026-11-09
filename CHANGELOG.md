@@ -3,6 +3,15 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- **The day-to-day switches are in the panel**: each device's row has its own switches (off-peak hours, forced run, extra off-peak
+  windows when it has them), the same as its entities, with the mode shown on the row. A link at the bottom of the panel opens the
+  GitHub issue forms.
+- **GitHub issue forms** (English and French): report a problem, suggest an improvement, or make solarprio work with your hardware,
+  with a chooser that points to the documentation.
+
 ## [0.3.1] - 2026-11-09
 
 ### Added

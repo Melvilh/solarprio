@@ -1,0 +1,64 @@
+name: Make solarprio work with my hardware / Faire fonctionner solarprio avec mon matériel
+description: A wallbox, heat pump, inverter, battery, relay, meter, router... you want supported or have made work. / Une borne, une pompe à chaleur, un onduleur, une batterie, un relais, un compteur, un routeur...
+labels: ["compatibility"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        English or French, as you like. / En français ou en anglais, comme vous voulez.
+        You do not need to be sure it works: say what you tried and what happened. A brand or model **profile** (one small file, no code)
+        is the best way to add it: see [ADDING_COMPATIBILITY.md](https://github.com/Melvilh/solarprio/blob/main/docs/ADDING_COMPATIBILITY.md).
+        Vous n'avez pas besoin d'être sûr que ça marche : dites ce que vous avez essayé.
+  - type: input
+    id: device
+    attributes:
+      label: Vendor, model, firmware or software version / Marque, modèle, version
+      placeholder: "Victron EV Charging Station, firmware ..."
+    validations:
+      required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Its role / Son rôle
+      options:
+        - Water heater or router / Chauffe-eau ou routeur
+        - Heat pump or radiator / Pompe à chaleur ou radiateur
+        - EV charger / Borne de recharge
+        - Battery / Batterie
+        - Inverter / Onduleur
+        - Relay or plug / Relais ou prise
+        - Meter / Compteur
+        - Other / Autre
+    validations:
+      required: true
+  - type: textarea
+    id: control
+    attributes:
+      label: How is it commanded and measured? / Comment est-il commandé et mesuré ?
+      description: Home Assistant entities, MQTT topics, HTTP, Modbus... with a link to its documentation. / Entités Home Assistant, topics MQTT, HTTP, Modbus... avec un lien vers sa documentation.
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: What did you try with solarprio? / Qu'avez-vous essayé avec solarprio ?
+      description: Configuration without secrets, what happened. / Configuration sans secrets, ce qui s'est passé.
+  - type: dropdown
+    id: status
+    attributes:
+      label: What can we honestly say about it? / Que peut-on dire honnêtement ?
+      options:
+        - Verified on real hardware, with the load's own safety devices in place / Vérifié sur du vrai matériel
+        - Simulated only / Simulé seulement
+        - From the manufacturer's documentation, not run / D'après la documentation, non testé
+        - Not tried yet, I would like it to work / Pas encore essayé, j'aimerais que ça marche
+    validations:
+      required: true
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Do you want to contribute it? / Voulez-vous le contribuer ?
+      options:
+        - Yes, I will write the profile or the page / Oui, j'écrirai le profil ou la page
+        - I can test what someone else writes / Je peux tester ce que d'autres écrivent
+        - No, I only ask / Non, je demande seulement

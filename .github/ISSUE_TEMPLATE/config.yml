@@ -1,1 +1,8 @@
 blank_issues_enabled: false
+contact_links:
+  - name: Add your hardware yourself (no code needed) / Ajouter votre matériel vous-même (sans code)
+    url: https://github.com/Melvilh/solarprio/blob/main/docs/ADDING_COMPATIBILITY.md
+    about: A profile or a tested configuration is already a contribution. / Un profil ou une configuration testée est déjà une contribution.
+  - name: Documentation (start here) / Documentation (point de départ)
+    url: https://github.com/Melvilh/solarprio/blob/main/README.md
+    about: Install, settings, off-peak hours, forced run. / Installation, réglages, heures creuses, marche forcée.

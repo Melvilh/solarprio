@@ -1,0 +1,52 @@
+name: Report a problem / Signaler un problème
+description: Something does not work as described, or does something unexpected. / Quelque chose ne marche pas comme décrit.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you. English or French, as you like. / Merci. En français ou en anglais, comme vous voulez.
+        **Safety first / Sécurité d'abord:** if a load behaved dangerously, switch it off with the routing switch and say so below.
+  - type: dropdown
+    id: where
+    attributes:
+      label: How do you run solarprio? / Comment utilisez-vous solarprio ?
+      options:
+        - Home Assistant (HACS)
+        - Docker / standalone
+        - Other / Autre
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: solarprio version / Version de solarprio
+      placeholder: "0.3.1"
+    validations:
+      required: true
+  - type: input
+    id: ha
+    attributes:
+      label: Home Assistant version (if any) / Version de Home Assistant (le cas échéant)
+      placeholder: "2026.11.0"
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect? / Que s'est-il passé, et que vouliez-vous ?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can it be reproduced? / Comment le reproduire ?
+      description: Steps, the device and its settings (without passwords or keys). / Étapes, l'appareil et ses réglages (sans mot de passe ni clé).
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / Journaux
+      description: Home Assistant log lines about solarprio, or the container log. Remove anything private. / Lignes du journal sur solarprio. Retirez tout ce qui est privé.
+      render: shell
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot of the panel or the settings (optional) / Capture d'écran (facultatif)

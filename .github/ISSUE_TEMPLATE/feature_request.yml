@@ -1,0 +1,45 @@
+name: Suggest an improvement or a change / Proposer une amélioration ou un changement
+description: Something that should work differently, or a new function. / Quelque chose qui devrait fonctionner autrement, ou une nouvelle fonction.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        English or French, as you like. / En français ou en anglais, comme vous voulez.
+        The project grows with what people need: tell us your situation, not only the solution you imagine.
+        Le projet évolue avec les besoins : décrivez votre situation, pas seulement la solution que vous imaginez.
+  - type: textarea
+    id: situation
+    attributes:
+      label: Your situation and what is missing or in the way / Votre situation et ce qui manque ou gêne
+      description: For example your tariff, your devices, what you want to happen and when. / Par exemple votre tarif, vos appareils, ce que vous voulez qu'il se passe et quand.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like instead? / Que souhaiteriez-vous à la place ?
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part? / Quelle partie ?
+      options:
+        - Panel / Panneau
+        - Settings and forms / Réglages et formulaires
+        - Off-peak hours and tariffs / Heures creuses et tarifs
+        - Water heater / Chauffe-eau
+        - EV charger / Borne de recharge
+        - Battery / Batterie
+        - Docker runtime / Runtime Docker
+        - Translations / Traductions
+        - Documentation
+        - Other / Autre
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Could you help? / Pourriez-vous aider ?
+      options:
+        - I can test a change on my installation / Je peux tester sur mon installation
+        - I can write or correct the documentation or a translation / Je peux écrire ou corriger la doc ou une traduction
+        - I can write the code / Je peux écrire le code
+        - Not for now / Pas pour l'instant

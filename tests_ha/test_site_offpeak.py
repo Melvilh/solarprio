@@ -233,3 +233,40 @@ async def test_editing_a_device_keeps_its_older_own_off_peak_hours_and_drops_an_
         await hass.async_block_till_done()
         saved = hass.config_entries.async_entries(DOMAIN)[0].options["devices"][0]
         assert "offpeak_entity" not in saved and "offpeak_site" not in saved  # the old index does not come back
+
+
+async def test_the_panel_flips_the_same_switches_as_the_entities(hass: HomeAssistant, hass_ws_client):
+    heater = {**HEATER, "temp_min": 40, "sanitary_forced_only": True, "measured_entity": POWER}
+    world = World(hass, data=SITE_OFFPEAK, devices=[heater], temp="50", local=NIGHT)
+    hass.states.async_set(PERIOD, "HC..")
+    hass.states.async_set(HOUSE, "1000", {"unit_of_measurement": "W"})
+    p1, p2 = world.patches()
+    with p1, p2:
+        coord = await started(world)
+        client = await hass_ws_client(hass)
+        snap = (await ws(client, type="solarprio/state"))["result"]
+        assert snap["devices"][0]["controls"] == {"offpeak": False, "forced_run": False, "extra_windows": False}
+        res = await ws(client, type="solarprio/set_device_control", device_id="ecs", control="offpeak", on=True)
+        assert res["success"] and res["result"]["devices"][0]["controls"]["offpeak"] is True
+        assert hass.states.get(entity(hass, "switch", "offpeak_ecs")).state == "on"  # the entity follows
+        assert res["result"]["devices"][0]["offpeak_mode"] == "router_offpeak"
+        # and the other way round: the entity changes what the panel shows
+        await hass.services.async_call("switch", "turn_off", {"entity_id": entity(hass, "switch", "offpeak_ecs")}, blocking=True)
+        assert coord.snapshot()["devices"][0]["controls"]["offpeak"] is False
+        res = await ws(client, type="solarprio/set_device_control", device_id="ecs", control="forced_run", on=True)
+        assert res["result"]["devices"][0]["controls"]["forced_run"] is True
+        assert hass.states.get(entity(hass, "switch", "forced_run_ecs")).state == "on"
+        # a switch the device does not have, and a device that does not exist
+        plain = await ws(client, type="solarprio/set_device_control", device_id="nope", control="offpeak", on=True)
+        assert not plain["success"] and plain["error"]["code"] == "unknown_device"
+
+
+async def test_a_device_without_a_switch_refuses_that_control(hass: HomeAssistant, hass_ws_client):
+    world = World(hass, data=DATA, devices=[{**HEATER, "temp_min": None}], local=NIGHT)  # no off-peak hours, no forced run
+    p1, p2 = world.patches()
+    with p1, p2:
+        await started(world)
+        client = await hass_ws_client(hass)
+        res = await ws(client, type="solarprio/set_device_control", device_id="ecs", control="offpeak", on=True)
+        assert not res["success"] and res["error"]["code"] == "no_such_control"
+        assert (await ws(client, type="solarprio/state"))["result"]["devices"][0]["controls"] == {}

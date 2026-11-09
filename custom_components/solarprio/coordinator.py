@@ -350,6 +350,27 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if device_id in self.device_cfgs:
             self.engine.set_offpeak(device_id, on)
 
+    def controls(self, device_id: str) -> dict[str, bool]:
+        """The switches that exist for a device and their state: "offpeak" (router + off-peak hours, or the router only),
+        "forced_run" and "extra_windows". The same ones as the entities, so the panel can offer them too."""
+        device, state = self.engine.device(device_id), self.engine.state(device_id)
+        controls: dict[str, bool] = {}
+        if device.has_schedule and device.kind is not DeviceKind.BATTERY:
+            controls["offpeak"] = state.offpeak_on
+        if device.sanitary_forced_only or device.kind in (DeviceKind.EV_CHARGER, DeviceKind.BATTERY):
+            controls["forced_run"] = state.forced_run
+        if device.windows_extra:
+            controls["extra_windows"] = state.extra_on
+        return controls
+
+    def set_control(self, device_id: str, control: str, on: bool) -> bool:
+        """Set one of the switches of a device (see ``controls``). False when the device has no such switch."""
+        if control not in self.controls(device_id):
+            return False
+        {"offpeak": self.set_offpeak_enabled, "forced_run": self.set_forced_run, "extra_windows": self.set_extra_windows}[control](
+            device_id, on)
+        return True
+
     def set_forced_run(self, device_id: str, on: bool) -> None:
         """The "forced run" switch of a device (its sanitary minimum only feeds it while this is on)."""
         if device_id in self.device_cfgs:
@@ -403,6 +424,7 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "extra_windows": self.engine.state(cfg["id"]).extra_on,
             "temperature_c": reading.temperature if reading else None,
         }
+        out["controls"] = self.controls(cfg["id"])
         if cfg["kind"] == DeviceKind.EV_CHARGER.value:
             out["current_a"] = round(self.engine.device(cfg["id"]).current_for(cmd_w), 1)
         return out

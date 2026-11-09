@@ -30,7 +30,7 @@ def _asset_version() -> str:
 async def async_setup_panel_api(hass: HomeAssistant) -> None:
     """Once per HA run: serve the panel file and register websocket commands."""
     await hass.http.async_register_static_paths([StaticPathConfig(PANEL_STATIC_URL, str(PANEL_JS), cache_headers=False)])
-    for handler in (ws_state, ws_reorder, ws_set_device_enabled, ws_set_routing, ws_device_form, ws_device_save,
+    for handler in (ws_state, ws_reorder, ws_set_device_enabled, ws_set_device_control, ws_set_routing, ws_device_form, ws_device_save,
                     ws_device_remove, ws_settings_form, ws_settings_save):
         websocket_api.async_register_command(hass, handler)
 
@@ -114,6 +114,28 @@ def ws_set_device_enabled(hass: HomeAssistant, connection: websocket_api.ActiveC
         {**cfg, "enabled": msg["enabled"]} if cfg["id"] == msg["device_id"] else cfg for cfg in coordinator.device_cfgs.values()
     ]
     _save_devices(hass, coordinator, devices)
+    connection.send_result(msg["id"], coordinator.snapshot())
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): "solarprio/set_device_control", vol.Required("device_id"): str,
+     vol.Required("control"): vol.In(["offpeak", "forced_run", "extra_windows"]), vol.Required("on"): bool}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_set_device_control(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    """Flip one of the switches of a device from the panel: the same ones as its entities (off-peak hours, forced run...)."""
+    coordinator = _coordinator(hass)
+    if coordinator is None:
+        _not_configured(connection, msg)
+        return
+    if msg["device_id"] not in coordinator.device_cfgs:
+        connection.send_error(msg["id"], "unknown_device", "unknown device")
+        return
+    if not coordinator.set_control(msg["device_id"], msg["control"], msg["on"]):
+        connection.send_error(msg["id"], "no_such_control", "this device has no such switch")
+        return
+    coordinator.async_update_listeners()  # the entities of the switches follow at once, and their state is what is restored later
     connection.send_result(msg["id"], coordinator.snapshot())
 
 

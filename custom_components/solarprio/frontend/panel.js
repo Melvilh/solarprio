@@ -1,5 +1,7 @@
 /* solarprio sidebar panel: drag-and-drop priorities. No build step, no dependencies. */
 
+const FEEDBACK_URL = "https://github.com/Melvilh/solarprio/issues/new/choose"; // the issue forms: bug, improvement, hardware
+
 const T = {
   en: {
     title: "Solar routing",
@@ -48,6 +50,8 @@ const T = {
     unplugged: "unplugged",
     offpeak: { heating: "off-peak: running", done: "off-peak: finished", waiting: "off-peak: waiting" },
     offpeakMode: { router_offpeak: "router + off-peak hours", router_only: "router only" },
+    controls: { offpeak: "Off-peak hours", forced_run: "Forced run", extra_windows: "Extra off-peak windows" },
+    feedback: "Report a problem, suggest an improvement or ask for your hardware",
     disabled: "Disabled",
     error: "Could not save, order restored.",
     notConfigured: "solarprio is not set up.",
@@ -110,6 +114,8 @@ const T = {
     unplugged: "débranché",
     offpeak: { heating: "heures creuses : en cours", done: "heures creuses : terminé", waiting: "heures creuses : en attente" },
     offpeakMode: { router_offpeak: "routeur + heures creuses", router_only: "routeur seul" },
+    controls: { offpeak: "Heures creuses", forced_run: "Marche forcée", extra_windows: "Plages supplémentaires" },
+    feedback: "Signaler un problème, proposer une amélioration ou demander votre matériel",
     disabled: "Désactivé",
     error: "Enregistrement impossible, ordre restauré.",
     notConfigured: "solarprio n'est pas configuré.",
@@ -144,6 +150,10 @@ const STYLE = `
   .status .detail { display: block; font-size: 12px; margin-top: 4px; word-break: break-all; }
   .status .hint2 { display: block; font-size: 12px; margin-top: 4px; font-style: italic; }
   .hint { color: var(--secondary-text-color); font-size: 14px; margin: 0 0 12px; }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 4px 18px; margin-top: 8px; }
+  .ctrl { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--primary-text-color); cursor: pointer; }
+  .feedback { margin: 16px 0 0; font-size: 13px; color: var(--secondary-text-color); text-align: center; }
+  .feedback a { color: var(--primary-color); }
   ul { list-style: none; margin: 0; padding: 0; position: relative; }
   li.row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 8px;
            background: var(--card-background-color, #fff); border: 1px solid var(--divider-color, #ddd);
@@ -307,6 +317,20 @@ class SolarPrioPanel extends HTMLElement {
     if (failed) this._toast(this._t.error);
   }
 
+  async _setControl(deviceId, control, on) {
+    this._busy = true;
+    let failed = false;
+    try {
+      this._state = await this._call({ type: "solarprio/set_device_control", device_id: deviceId, control, on });
+    } catch (_) {
+      failed = true;
+    } finally {
+      this._busy = false;
+      this._render();
+    }
+    if (failed) this._toast(this._t.error);
+  }
+
   async _setRouting(enabled) {
     this._busy = true;
     let failed = false;
@@ -385,7 +409,7 @@ class SolarPrioPanel extends HTMLElement {
     const key = JSON.stringify([
       t.title,
       this._notConfigured,
-      s && s.devices.map((d) => [d.id, d.name, d.entity_id, d.power_w]),
+      s && s.devices.map((d) => [d.id, d.name, d.entity_id, d.power_w, Object.keys(d.controls || {})]),
     ]);
     if (key === this._key && this.shadowRoot.querySelector(".wrap")) {
       this._patch();
@@ -393,6 +417,19 @@ class SolarPrioPanel extends HTMLElement {
     }
     this._key = key;
     this._build();
+  }
+
+  /** The switches of a device that matter day to day (off-peak hours, forced run...), the same as its entities. */
+  _controlsHtml(d) {
+    const t = this._t;
+    const names = Object.keys(d.controls || {});
+    if (!names.length) return "";
+    const items = names
+      .map(
+        (c) => `<label class="ctrl"><ha-switch class="ctl" data-id="${esc(d.id)}" data-control="${c}" aria-label="${t.controls[c]} ${esc(d.name)}"></ha-switch><span>${t.controls[c]}</span></label>`,
+      )
+      .join("");
+    return `<div class="ctrls">${items}</div>`;
   }
 
   _build() {
@@ -416,6 +453,7 @@ class SolarPrioPanel extends HTMLElement {
               <div class="name">${esc(d.name)}</div>
               <div class="sub"></div>
               <div class="bar"><div></div></div>
+              ${this._controlsHtml(d)}
             </div>
             <div class="power"></div>
             <div class="arrows">
@@ -438,7 +476,8 @@ class SolarPrioPanel extends HTMLElement {
           <div class="status" id="status"></div>
         </div></ha-card>
         <p class="hint">${t.hint}</p>
-        ${s.devices.length ? `<ul>${rows}</ul>` : `<ha-card><div class="empty">${t.empty}</div></ha-card>`}`;
+        ${s.devices.length ? `<ul>${rows}</ul>` : `<ha-card><div class="empty">${t.empty}</div></ha-card>`}
+        <p class="feedback"><a href="${FEEDBACK_URL}" target="_blank" rel="noopener">${t.feedback}</a></p>`;
     }
 
     const actions =
@@ -516,6 +555,10 @@ class SolarPrioPanel extends HTMLElement {
       set(row.querySelector(".power"), fmtW(d.cmd_w));
       const box = row.querySelector(".dev-enabled");
       if (box.checked !== d.enabled) box.checked = d.enabled;
+      row.querySelectorAll(".ctl").forEach((sw) => {
+        const on = !!(d.controls && d.controls[sw.dataset.control]);
+        if (sw.checked !== on) sw.checked = on;
+      });
     });
   }
 
@@ -535,6 +578,9 @@ class SolarPrioPanel extends HTMLElement {
     root.querySelectorAll(".up").forEach((b) => b.addEventListener("click", () => !b.disabled && this._move(Number(b.dataset.index), -1)));
     root.querySelectorAll(".down").forEach((b) => b.addEventListener("click", () => !b.disabled && this._move(Number(b.dataset.index), 1)));
     root.querySelectorAll(".dev-enabled").forEach((c) => c.addEventListener("change", () => this._setEnabled(c.dataset.id, c.checked)));
+    root.querySelectorAll(".ctl").forEach((c) =>
+      c.addEventListener("change", () => this._setControl(c.dataset.id, c.dataset.control, c.checked)),
+    );
     const routing = root.getElementById("routing");
     if (routing) routing.addEventListener("change", () => this._setRouting(routing.checked));
     const add = root.getElementById("btn-add");
