@@ -3,6 +3,14 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Water heater controls in Home Assistant: option *Sanitary minimum only on a forced run* with a `forced run` switch per
+  device, *Extra off-peak windows* (for example the midday hours) chosen with an `extra off-peak windows` switch, a `hot`
+  binary sensor and a `mode` sensor per device. See `docs/REGULATION.md`. The standalone runtime refuses the two new
+  options (it has no switches yet).
+
 ## [0.2.1] - 2026-11-09
 
 ### Added

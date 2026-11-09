@@ -188,6 +188,10 @@ def parse_config(raw: dict[str, Any]) -> Config:
             device = Device(**entry)
         except (KeyError, TypeError, ValueError) as e:
             raise ConfigError(f"invalid device {entry.get('id')!r}: {e}") from e
+        if device.sanitary_forced_only or device.offpeak_extra:
+            raise ConfigError(  # these two are driven by switches that only exist in Home Assistant: refuse rather than never act
+                f"device {device.id!r}: sanitary_forced_only and offpeak_extra need the switches of the Home Assistant integration"
+                " (the standalone runtime has none yet)")
         if actuator["type"] not in ("mqtt", "http"):
             raise ConfigError(f"device {device.id!r}: unknown actuator type {actuator['type']!r}")
         # fail at start-up, not at the first command

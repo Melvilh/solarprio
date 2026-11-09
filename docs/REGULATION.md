@@ -79,6 +79,30 @@ a reading that does not show the last change yet is what makes a regulation over
 "old" while it is perfectly healthy: the panel then says *has not reported for N s*. Set the delay to 0 for such a sensor;
 a dead ESP still makes its sensors *unavailable*, which is detected.
 
+## The water heater controls (Home Assistant)
+
+These replace the switches and sensors you used to have on the router itself ("Forced run", "HC midi", "Is it hot", "Heating
+mode"). They belong to solarprio, so they work the same for every heater.
+
+| What you want | Setting of the device | Entity created in Home Assistant |
+|---|---|---|
+| The sanitary minimum heats from the grid **only when you ask for a forced run** | tick *Sanitary minimum only on a forced run* (needs the minimum temperature) | switch `<device> forced run` (off after a first install; the state is restored after a restart) |
+| Choose whether the **midday off-peak hours** heat, the night always does | *Off-peak windows*: `22:30-06:30`; *Extra off-peak windows*: `12:30-14:30` | switch `<device> extra off-peak windows` |
+| Is it hot? | any temperature limit | binary sensor `<device> hot` (on from the maximum temperature until it has cooled by the hysteresis) |
+| What is it doing? | always | sensor `<device> mode`: idle, solar surplus, off-peak top-up, sanitary minimum, hot, sensor fault, disabled (and "limited by the subscription") |
+
+Notes:
+
+- Without the option, the sanitary minimum stays automatic: a cold tank is heated whenever it is too cold. The forced-run
+  switch changes nothing for such a device.
+- The extra windows combine with the tariff signal exactly like the others: if you also give an off-peak entity (the Linky
+  period), it must say off-peak too. The usual setup is the Linky as the signal, the night as the window and the midday
+  hours as the extra window.
+- *Surplus only* still forbids everything fed from the grid, a forced run included.
+- Both options need these switches, which only exist in the Home Assistant integration: the standalone Docker runtime
+  refuses them in its configuration instead of silently never acting.
+- "Hot" is true from the first maximum reached (the off-peak one included); `mode` says which rule is driving the device.
+
 ## Several heaters, heat pumps, batteries
 
 Nothing limits the number of devices; each has its own priority and settings. Temperature settings apply to on/off and

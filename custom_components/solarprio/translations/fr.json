@@ -107,7 +107,9 @@
           "surplus_only": "Surplus uniquement (jamais depuis le réseau)",
           "hold_s": "Attente après un changement (s)",
           "ramp_up_w": "Plus grande montée à la fois (W)",
-          "deadband_w": "Ignorer les variations inférieures à (W)"
+          "deadband_w": "Ignorer les variations inférieures à (W)",
+          "offpeak_extra": "Plages heures creuses supplémentaires (facultatif, avec un interrupteur)",
+          "sanitary_forced_only": "Minimum sanitaire seulement en marche forcée"
         },
         "data_description": {
           "entity_id": "Tout-ou-rien et réglable : l'entité à commuter ou régler. Batterie : l'entité number de la consigne de charge. Borne : l'entité number du courant de charge en ampères. Tâche : un assistant (input_boolean) que vos propres scripts lisent ; solarprio ne commute jamais une alimentation pour une tâche. N'utilisez pas une charge tout-ou-rien pour un ordinateur, un serveur ou un NAS : couper leur courant peut faire perdre des données.",
@@ -133,7 +135,9 @@
           "surplus_only": "Interdit tout ce qui alimente cet appareil depuis le réseau : ni chauffe d'appoint en heures creuses, ni chauffe sanitaire. Seul le surplus solaire est utilisé.",
           "hold_s": "Après un changement de puissance de cet appareil, attendre ce délai avant de la remonter (la moitié avant de la baisser). La mesure du réseau met quelques secondes à montrer l'effet d'un changement ; sans attente, la régulation dépasse et soutire sur le réseau. 8 secondes conviennent à un gradateur avec un Linky.",
           "ramp_up_w": "La puissance ne monte jamais de plus que cela d'un coup : un gros surplus est suivi par paliers. 200 W est un bon début pour un gradateur. Laissez vide pour aucune limite.",
-          "deadband_w": "Ne pas changer la puissance pour quelques watts : cela use le matériel et fait osciller la mesure. Passer à zéro ou en repartir n'est jamais ignoré."
+          "deadband_w": "Ne pas changer la puissance pour quelques watts : cela use le matériel et fait osciller la mesure. Passer à zéro ou en repartir n'est jamais ignoré.",
+          "offpeak_extra": "Même format que les plages ci-dessus, par exemple 12:30-14:30 pour les heures creuses du midi. Elles ne comptent comme heures creuses que lorsque l'interrupteur « plages supplémentaires » de cet appareil est activé (créé par solarprio) : vous choisissez depuis Home Assistant de chauffer ou non le midi. Si vous renseignez aussi l'entité de signal, les deux doivent encore indiquer heures creuses.",
+          "sanitary_forced_only": "Le minimum sanitaire (voir « Minimum sanitaire » plus haut) ne chauffe depuis le réseau que lorsque l'interrupteur « marche forcée » de cet appareil est activé. Sans cette option, il chauffe automatiquement dès que l'eau est trop froide."
         }
       },
       "import_energy": {
@@ -170,6 +174,37 @@
       "options": {
         "water_heater_dimmer": "Chauffe-eau sur routeur solaire (gradateur, puissance réglable)",
         "water_heater_relay": "Chauffe-eau sur relais ou contacteur (tout-ou-rien)"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "hot": {
+        "name": "chaud"
+      }
+    },
+    "sensor": {
+      "heating_mode": {
+        "name": "mode",
+        "state": {
+          "idle": "Au repos",
+          "solar": "Surplus solaire",
+          "offpeak": "Appoint heures creuses",
+          "offpeak_limited": "Heures creuses (limité par l'abonnement)",
+          "sanitary": "Minimum sanitaire",
+          "sanitary_limited": "Minimum sanitaire (limité par l'abonnement)",
+          "hot": "Chaud (maximum atteint)",
+          "sensor_fault": "Sonde de température en défaut",
+          "disabled": "Désactivé"
+        }
+      }
+    },
+    "switch": {
+      "forced_run": {
+        "name": "marche forcée"
+      },
+      "extra_windows": {
+        "name": "plages heures creuses supplémentaires"
       }
     }
   }

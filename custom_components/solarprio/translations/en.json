@@ -107,7 +107,9 @@
           "surplus_only": "Surplus only (never from the grid)",
           "hold_s": "Wait after a change (s)",
           "ramp_up_w": "Largest step up (W)",
-          "deadband_w": "Ignore changes smaller than (W)"
+          "deadband_w": "Ignore changes smaller than (W)",
+          "offpeak_extra": "Extra off-peak windows (optional, with a switch)",
+          "sanitary_forced_only": "Sanitary minimum only on a forced run"
         },
         "data_description": {
           "entity_id": "On/off and adjustable: the entity to switch or set. Battery: the number entity of the charge setpoint. EV charger: the number entity of the charging current in amps. Task: a helper (input_boolean) that your own scripts read; solarprio never switches a power supply for a task. Do not use an on/off load for a computer, server or NAS: cutting their power can lose data.",
@@ -133,7 +135,9 @@
           "surplus_only": "Forbids everything that feeds this device from the grid: no off-peak top-up and no sanitary heating. Only solar surplus is used.",
           "hold_s": "After the power of this device changed, wait this long before raising it again (half of it before lowering it). The grid measurement needs a few seconds to show the effect of a change; without waiting the regulation overshoots and imports from the grid. 8 seconds suits a dimmer on a Linky.",
           "ramp_up_w": "The power never rises by more than this at once, so a big surplus is followed in steps. 200 W is a good start for a dimmer. Leave empty for no limit.",
-          "deadband_w": "Do not change the power for a few watts: it only wears the equipment and makes the measurement hunt. Going to or from zero is never ignored."
+          "deadband_w": "Do not change the power for a few watts: it only wears the equipment and makes the measurement hunt. Going to or from zero is never ignored.",
+          "offpeak_extra": "Same format as the windows above, for example 12:30-14:30 for the midday off-peak hours. They count as off-peak only while the \"extra windows\" switch of this device is on (created by solarprio), so you can choose from Home Assistant whether to heat at midday. If you also fill the signal entity, both must still say off-peak.",
+          "sanitary_forced_only": "The sanitary minimum (see \"Sanitary minimum\" above) heats from the grid only while the \"forced run\" switch of this device is on. Without this option it heats automatically whenever the water is too cold."
         }
       },
       "import_energy": {
@@ -170,6 +174,37 @@
       "options": {
         "water_heater_dimmer": "Water heater on a solar router (dimmer, adjustable power)",
         "water_heater_relay": "Water heater on a relay or contactor (on/off)"
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "hot": {
+        "name": "hot"
+      }
+    },
+    "sensor": {
+      "heating_mode": {
+        "name": "mode",
+        "state": {
+          "idle": "Idle",
+          "solar": "Solar surplus",
+          "offpeak": "Off-peak top-up",
+          "offpeak_limited": "Off-peak (limited by the subscription)",
+          "sanitary": "Sanitary minimum",
+          "sanitary_limited": "Sanitary minimum (limited by the subscription)",
+          "hot": "Hot (maximum reached)",
+          "sensor_fault": "Temperature sensor fault",
+          "disabled": "Disabled"
+        }
+      }
+    },
+    "switch": {
+      "forced_run": {
+        "name": "forced run"
+      },
+      "extra_windows": {
+        "name": "extra off-peak windows"
       }
     }
   }

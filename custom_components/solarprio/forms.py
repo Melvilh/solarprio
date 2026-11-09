@@ -93,6 +93,7 @@ def _temperature_fields() -> list[Field]:
         _number("temp_max_offpeak", "°C", None, -50, 150, required=False),
         _number("temp_hysteresis", "°C", 3, 0, 50, advanced=True),
         _number("temp_min", "°C", None, -50, 150, required=False, advanced=True),
+        _flag("sanitary_forced_only", advanced=True),
     ]
 
 
@@ -158,6 +159,7 @@ def device_fields(kind: str, next_priority: int = 1) -> list[Field]:
         fields += [
             _entity("offpeak_entity", OFFPEAK_SIGNAL_DOMAINS),
             _text("offpeak", advanced=True),
+            _text("offpeak_extra", advanced=True),
             _text("offpeak_values", advanced=True),
         ]
         if kind != DeviceKind.TASK.value:  # a task has nothing to measure, so nothing that can be "finished"

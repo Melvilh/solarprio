@@ -52,7 +52,7 @@ DEVICE_FIELDS = (
     "min_on_s", "min_off_s", "start_margin_w", "stay_tolerance_w", "enabled",
     "soc_max", "soc_resume_margin", "settle_s",
     "voltage_v", "phases", "min_current_a", "max_current_a", "current_step_a",
-    "offpeak", "reset_at", "done_below_w", "done_after_s", "offpeak_signal",
+    "offpeak", "offpeak_extra", "reset_at", "done_below_w", "done_after_s", "offpeak_signal", "sanitary_forced_only",
     "temp_max_solar", "temp_max_offpeak", "temp_hysteresis", "temp_min", "surplus_only", "hold_s", "ramp_up_w", "deadband_w",
 )
 
@@ -68,6 +68,8 @@ def build_device(cfg: dict[str, Any]) -> Device:
         values["phases"] = int(values["phases"])
     if isinstance(values.get("offpeak"), str):  # the form holds the windows as one text: "22:30-06:30, 12:30-14:30"
         values["offpeak"] = tuple(w.strip() for w in values["offpeak"].replace(";", ",").split(",") if w.strip())
+    if isinstance(values.get("offpeak_extra"), str):
+        values["offpeak_extra"] = tuple(w.strip() for w in values["offpeak_extra"].replace(";", ",").split(",") if w.strip())
     values["reset_at"] = values.get("reset_at") or None
     values["offpeak_signal"] = bool(cfg.get("offpeak_entity"))  # off-peak told by an entity instead of windows
     values["done_below_w"] = float(values["done_below_w"]) if values.get("done_below_w") else None  # 0 = automatic
@@ -297,6 +299,16 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     # ---- live changes from the panel ----------------------------------
 
+    def set_forced_run(self, device_id: str, on: bool) -> None:
+        """The "forced run" switch of a device (its sanitary minimum only feeds it while this is on)."""
+        if device_id in self.device_cfgs:
+            self.engine.set_forced_run(device_id, on)
+
+    def set_extra_windows(self, device_id: str, on: bool) -> None:
+        """The "extra windows" switch of a device (its extra off-peak windows count only while this is on)."""
+        if device_id in self.device_cfgs:
+            self.engine.set_extra_windows(device_id, on)
+
     def settings_changed(self, data: dict[str, Any]) -> bool:
         """True when the site settings (measurement, safety) differ from the ones this coordinator runs with."""
         return dict(data) != self._conf
@@ -333,6 +345,9 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "current_a": None,
             "offpeak": self.engine.offpeak_status(cfg["id"], dt_util.now()),
             "mode": self.engine.mode(cfg["id"]),
+            "hot": self.engine.is_hot(cfg["id"]),
+            "forced_run": self.engine.state(cfg["id"]).forced_run,
+            "extra_windows": self.engine.state(cfg["id"]).extra_on,
             "temperature_c": reading.temperature if reading else None,
         }
         if cfg["kind"] == DeviceKind.EV_CHARGER.value:

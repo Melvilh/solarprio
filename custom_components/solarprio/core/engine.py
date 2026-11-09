@@ -109,6 +109,19 @@ class Engine:
         power), hot (tank at its maximum), sensor_fault (temperature unknown), disabled."""
         return self._states[device_id].reason
 
+    def is_hot(self, device_id: str) -> bool:
+        """The tank is at (or above) a maximum temperature and waits to cool down by the hysteresis."""
+        state = self._states[device_id]
+        return self._devices[device_id].has_temperature and (state.hot_solar or state.hot_offpeak)
+
+    def set_forced_run(self, device_id: str, on: bool) -> None:
+        """The "forced run" switch of a device (it only matters for ``sanitary_forced_only`` devices)."""
+        self._states[device_id].forced_run = bool(on)
+
+    def set_extra_windows(self, device_id: str, on: bool) -> None:
+        """Whether the device's ``offpeak_extra`` windows (for example the midday off-peak hours) count as off-peak."""
+        self._states[device_id].extra_on = bool(on)
+
     def set_priority(self, device_id: str, priority: int) -> None:
         """Change a device priority on the fly; its state and timers are kept."""
         self._devices[device_id].priority = priority
@@ -130,6 +143,7 @@ class Engine:
             fresh.done_cycle = old.done_cycle  # a device found finished tonight is not topped up again tonight
             fresh.signal_prev, fresh.signal_period = old.signal_prev, old.signal_period
             fresh.hot_solar, fresh.hot_offpeak, fresh.cold = old.hot_solar, old.hot_offpeak, old.cold  # real temperatures
+            fresh.forced_run, fresh.extra_on = old.forced_run, old.extra_on  # the user's switches
             self._states[device_id] = fresh
         self._readings.clear()
         self._shed_until = -math.inf
@@ -207,7 +221,7 @@ class Engine:
             return False
         if dev.offpeak_signal and (reading is None or reading.offpeak is not True):
             return False  # unknown or not off-peak: never force on a doubtful signal
-        if dev.windows and (local is None or not dev.in_offpeak(local)):
+        if (dev.windows or dev.windows_extra) and (local is None or not dev.in_offpeak(local, state.extra_on)):
             return False
         if state.done_cycle == self._period_key(dev, state, local):
             return False
@@ -264,6 +278,8 @@ class Engine:
     # ---- feeding from the grid on purpose, inside the subscription ----
 
     def _sanitary_candidate(self, dev: Device, state: DeviceState) -> bool:
+        if dev.sanitary_forced_only and not state.forced_run:
+            return False  # the user wants the sanitary minimum only when they ask for a forced run
         return dev.enabled and dev.temp_min is not None and not dev.surplus_only and dev.id not in self._temp_fault and state.cold
 
     def _cap_w(self, now: float, house_w: float | None) -> float | None:

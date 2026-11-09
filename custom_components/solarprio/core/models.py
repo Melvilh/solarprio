@@ -75,6 +75,7 @@ class Device:
     reset_at: str | None = None  # "HH:MM" from which the device may be topped up again; default: end of the first window
     done_below_w: float | None = None  # measured power at or below which the device counts as finished; default 5 % of power_w
     done_after_s: float = 120.0  # how long it must have been on before a low measured power means "finished"
+    offpeak_extra: tuple[str, ...] = ()  # more windows that count as off-peak only while the device's "extra windows" switch is on
     offpeak_signal: bool = False  # off-peak is told by an entity/topic (reading.offpeak); with windows too: both must hold
     # tank temperature (water heaters): limits, hysteresis and a sanitary minimum, read from ``reading.temperature``
     temp_max_solar: float | None = None  # stop heating with the sun at this temperature (resume ``temp_hysteresis`` below)
@@ -82,11 +83,13 @@ class Device:
     temp_hysteresis: float = 3.0
     temp_min: float | None = None  # sanitary minimum: below it the device is fed from the grid, whatever the sun
     surplus_only: bool = False  # never feed this device from the grid: no off-peak top-up, no sanitary forcing
+    sanitary_forced_only: bool = False  # the sanitary minimum only feeds the device while its "forced run" switch is on
     # smoother regulation of an adjustable load (the grid measurement lags behind a change of power)
     hold_s: float = 0.0  # after a change, wait this long before an increase (half of it before a decrease)
     ramp_up_w: float | None = None  # largest increase of power at once
     deadband_w: float = 0.0  # ignore changes smaller than this (except to or from zero)
     windows: tuple[tuple[int, int], ...] = field(init=False, default=(), repr=False, compare=False)
+    windows_extra: tuple[tuple[int, int], ...] = field(init=False, default=(), repr=False, compare=False)
     reset_minute: int = field(init=False, default=0, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -108,13 +111,18 @@ class Device:
             raise ValueError(f"{self.id}: soc_max must be within 0..100")
         self.offpeak = tuple(self.offpeak)
         try:
+            self.offpeak_extra = tuple(self.offpeak_extra)
             self.windows = tuple(parse_window(w) for w in self.offpeak)
-            self.reset_minute = parse_hhmm(self.reset_at) if self.reset_at else (self.windows[0][1] if self.windows else 0)
+            self.windows_extra = tuple(parse_window(w) for w in self.offpeak_extra)
+            first = (self.windows or self.windows_extra or ((0, 0),))[0]
+            self.reset_minute = parse_hhmm(self.reset_at) if self.reset_at else first[1]
         except ValueError as err:
             raise ValueError(f"{self.id}: {err}") from None
         if self.has_schedule and self.kind is DeviceKind.BATTERY:
             raise ValueError(f"{self.id}: a battery cannot have an off-peak schedule")
         self._validate_regulation()
+        if self.sanitary_forced_only and self.temp_min is None:
+            raise ValueError(f"{self.id}: sanitary_forced_only needs temp_min (the sanitary minimum)")
         if self.done_below_w is not None and not 0 <= self.done_below_w < self.power_w:
             raise ValueError(f"{self.id}: done_below_w must be within 0..power_w")
         if not math.isfinite(self.done_after_s) or self.done_after_s < 0:
@@ -151,15 +159,17 @@ class Device:
 
     @property
     def has_schedule(self) -> bool:
-        return bool(self.windows) or self.offpeak_signal
+        return bool(self.windows) or bool(self.windows_extra) or self.offpeak_signal
 
     @property
     def done_threshold_w(self) -> float:
         return self.done_below_w if self.done_below_w is not None else 0.05 * self.power_w
 
-    def in_offpeak(self, local: datetime) -> bool:
+    def in_offpeak(self, local: datetime, extra: bool = False) -> bool:
+        """Inside one of the windows; the extra windows count only when ``extra`` (their switch is on)."""
         minute = local.hour * 60 + local.minute
-        return any((s <= minute < e) if s < e else (minute >= s or minute < e) for s, e in self.windows)
+        windows = self.windows + (self.windows_extra if extra else ())
+        return any((s <= minute < e) if s < e else (minute >= s or minute < e) for s, e in windows)
 
     def cycle_key(self, local: datetime) -> str:
         """Identifier of the daily period containing ``local``; a device finished in one period is topped up again in the next."""
@@ -212,6 +222,8 @@ class DeviceState:
     hot_solar: bool = False  # tank above its solar maximum (hysteresis memory)
     hot_offpeak: bool = False  # tank above its off-peak maximum (hysteresis memory)
     cold: bool = False  # tank under its sanitary minimum (hysteresis memory)
+    forced_run: bool = False  # the "forced run" switch: lets the sanitary minimum feed a device with sanitary_forced_only
+    extra_on: bool = False  # the "extra windows" switch: the device's offpeak_extra windows count as off-peak
     reason: str = "idle"  # what drives the device now: idle, solar, offpeak, sanitary, hot, sensor_fault, limited, disabled
 
     @property

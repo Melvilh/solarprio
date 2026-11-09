@@ -26,6 +26,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         StatusSensor(coordinator, entry),
     ]
     entities += [DeviceSensor(coordinator, entry, d["id"], d["name"]) for d in coordinator.device_cfgs.values()]
+    entities += [HeatingModeSensor(coordinator, entry, d["id"], d["name"]) for d in coordinator.device_cfgs.values()]
     async_add_entities(entities)
 
 
@@ -60,6 +61,29 @@ class StatusSensor(_Base):
     @property
     def native_value(self) -> str | None:
         return self.coordinator.data["status"] if self.coordinator.data else None
+
+
+MODES = ["idle", "solar", "offpeak", "offpeak_limited", "sanitary", "sanitary_limited", "hot", "sensor_fault", "disabled"]
+
+
+class HeatingModeSensor(_Base):
+    """What drives the device now (solar surplus, off-peak top-up, sanitary minimum, hot, ...)."""
+
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = MODES
+    _attr_translation_key = "heating_mode"
+
+    def __init__(self, coordinator, entry, device_id: str, name: str) -> None:
+        super().__init__(coordinator, entry, f"mode_{device_id}", f"{name} mode")
+        self._attr_has_entity_name = True
+        self._device_id = device_id
+
+    @property
+    def native_value(self) -> str | None:
+        if not self.coordinator.data or self._device_id not in self.coordinator.device_cfgs:
+            return None
+        mode = self.coordinator.engine.mode(self._device_id)
+        return mode if mode in MODES else "idle"
 
 
 class DeviceSensor(_Base):
