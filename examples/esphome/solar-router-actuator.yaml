@@ -14,7 +14,7 @@
 # Compile it yourself, test with the heater's own mechanical safety thermostat in place, and fill the substitutions.
 
 substitutions:
-  device_name: solar-router
+  device_name: solar-router        # if you replace an existing ESP, keep ITS name (a new name = a new device in Home Assistant)
   friendly_name: "Chauffe eau"
   pmax_w: "2400"                    # the heater power in watts
   gate_pin: GPIO33                  # triac gate
