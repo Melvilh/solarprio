@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any
 
@@ -18,6 +19,11 @@ from .forms import PRESETS, Field, clean_device, clean_site, device_fields, merg
 
 PANEL_JS = Path(__file__).parent / "frontend" / "panel.js"
 VERSION = "0.2.2"
+
+
+def _asset_version() -> str:
+    """Version plus a hash of the panel file: the browser must never keep an older panel under the same address."""
+    return f"{VERSION}-{hashlib.sha256(PANEL_JS.read_bytes()).hexdigest()[:10]}"
 
 
 async def async_setup_panel_api(hass: HomeAssistant) -> None:
@@ -37,7 +43,7 @@ async def async_register_panel(hass: HomeAssistant) -> None:
         webcomponent_name="solarprio-panel",
         sidebar_title="solarprio",
         sidebar_icon="mdi:solar-power",
-        module_url=f"{PANEL_STATIC_URL}?v={VERSION}",
+        module_url=f"{PANEL_STATIC_URL}?v={_asset_version()}",
         require_admin=True,
     )
 

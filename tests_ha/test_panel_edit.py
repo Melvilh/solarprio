@@ -220,3 +220,14 @@ async def test_each_kind_can_be_saved_with_its_own_fields(hass: HomeAssistant, h
     saved = {d["kind"]: d for d in entry.options["devices"]}
     assert set(saved) == set(forms)
     assert saved["ev_charger"]["phases"] == 3 and saved["ev_charger"]["power_w"] == 16 * 230 * 3  # derived, stored for the panel
+
+
+def test_the_panel_address_changes_with_the_file_so_a_browser_never_keeps_an_old_panel(tmp_path, monkeypatch):
+    from custom_components.solarprio import panel
+
+    fake = tmp_path / "panel.js"
+    monkeypatch.setattr(panel, "PANEL_JS", fake)
+    fake.write_text("one")
+    first = panel._asset_version()
+    fake.write_text("two")
+    assert panel._asset_version() != first and panel._asset_version().startswith(panel.VERSION)
