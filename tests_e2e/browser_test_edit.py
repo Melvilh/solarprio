@@ -111,6 +111,7 @@ with sync_playwright() as p:
 
     # the entity picker is Home Assistant's: search by name, only the right kinds of entity for an on/off device
     assert entity_results("Entité à piloter", "Pump"), "the pump (input_boolean) is offered"
+    page.screenshot(path="panel_picker_open.png")
     assert not entity_results("Entité à piloter", "Dimmer"), "a number is not offered for an on/off device"
 
     # required fields are checked before anything is sent
