@@ -160,6 +160,8 @@ const STYLE = `
   li.row > ha-icon-button { --mdc-icon-button-size: 40px; --mdc-icon-size: 20px; color: var(--secondary-text-color); }
   .empty { text-align: center; color: var(--secondary-text-color); padding: 24px 8px; }
   ha-dialog { --mdc-dialog-min-width: min(560px, 92vw); --mdc-dialog-max-width: 600px; }
+  ha-wa-dialog, ha-dialog { --ha-dialog-width-md: min(600px, 92vw); }
+  .dlg-footer { display: flex; justify-content: flex-end; align-items: center; gap: 8px; width: 100%; }
   .choices { display: flex; flex-direction: column; gap: 8px; }
   .choices ha-button { width: 100%; }
   .dialog-hint { color: var(--secondary-text-color); font-size: 14px; margin: 0 0 12px; }
@@ -547,9 +549,19 @@ class SolarPrioPanel extends HTMLElement {
 
   _openDialog(title) {
     this._closeDialog(false);
-    const dlg = document.createElement("ha-dialog");
-    dlg.heading = title;
-    dlg.scrimClickAction = ""; // a click outside must not lose what was typed
+    // Home Assistant has two dialog APIs. The old one (ha-dialog): the title is "heading" and the buttons are children in the
+    // slots primaryAction / secondaryAction. The new one (ha-wa-dialog, and ha-dialog itself in recent versions): the title is
+    // "header-title" and the buttons go in a footer. Using the old one on a new Home Assistant shows no title and no buttons.
+    const tag = customElements.get("ha-wa-dialog") ? "ha-wa-dialog" : "ha-dialog";
+    const dlg = document.createElement(tag);
+    dlg._modern = "headerTitle" in dlg;
+    if (dlg._modern) {
+      dlg.headerTitle = title;
+      dlg.preventScrimClose = true; // a click outside must not lose what was typed
+    } else {
+      dlg.heading = title;
+      dlg.scrimClickAction = "";
+    }
     dlg.open = true;
     dlg.addEventListener("closed", (ev) => {
       if (ev.target !== dlg || this._dialogEl !== dlg) return; // Escape or the close button
@@ -561,6 +573,23 @@ class SolarPrioPanel extends HTMLElement {
     this._dialogEl = dlg;
     this.shadowRoot.appendChild(dlg);
     return dlg;
+  }
+
+  /** Put a button in the footer of a dialog, whichever Home Assistant dialog API is in use. */
+  _foot(dlg, node) {
+    if (!dlg._modern) {
+      dlg.appendChild(node); // old API: the slot attribute of the button does the job
+      return;
+    }
+    let footer = dlg.querySelector(":scope > .dlg-footer");
+    if (!footer) {
+      footer = document.createElement("div");
+      footer.className = "dlg-footer";
+      footer.slot = "footer";
+      dlg.appendChild(footer);
+    }
+    node.removeAttribute("slot");
+    footer.appendChild(node);
   }
 
   _closeDialog(restoreFocus = true) {
@@ -629,7 +658,7 @@ class SolarPrioPanel extends HTMLElement {
     group(presets.length ? t.presetsTitle : "", presets);
     group(presets.length ? t.otherTypes : "", kinds);
     dlg.appendChild(box);
-    dlg.appendChild(this._button(t.cancel, { slot: "secondaryAction", appearance: "plain", onClick: () => this._closeDialog() }));
+    this._foot(dlg, this._button(t.cancel, { slot: "secondaryAction", appearance: "plain", onClick: () => this._closeDialog() }));
   }
 
   async _openForm(kind, deviceId, preset = null) {
@@ -674,8 +703,9 @@ class SolarPrioPanel extends HTMLElement {
     const p = document.createElement("p");
     p.textContent = t.confirmRemove.replace("{name}", device.name);
     dlg.appendChild(p);
-    dlg.appendChild(this._button(t.cancel, { slot: "secondaryAction", appearance: "plain", onClick: () => this._closeDialog() }));
-    dlg.appendChild(
+    this._foot(dlg, this._button(t.cancel, { slot: "secondaryAction", appearance: "plain", onClick: () => this._closeDialog() }));
+    this._foot(
+      dlg,
       this._button(t.remove, {
         slot: "primaryAction",
         appearance: "filled",
@@ -755,9 +785,9 @@ class SolarPrioPanel extends HTMLElement {
     });
     dlg.appendChild(alert);
     dlg.appendChild(form);
-    dlg.appendChild(this._button(t.cancel, { slot: "secondaryAction", appearance: "plain", onClick: () => this._closeDialog() }));
+    this._foot(dlg, this._button(t.cancel, { slot: "secondaryAction", appearance: "plain", onClick: () => this._closeDialog() }));
     const saveBtn = this._button(t.save, { slot: "primaryAction", appearance: "filled", onClick: () => submit() });
-    dlg.appendChild(saveBtn);
+    this._foot(dlg, saveBtn);
 
     const fail = (field, message) => {
       errors[field] = message;

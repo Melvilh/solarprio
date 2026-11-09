@@ -1,6 +1,7 @@
 """Real Home Assistant + real Chromium: add, edit, configure and delete from the sidebar panel, with Home Assistant's own
 form components (entity picker, number fields, expandable section, dialog)."""
 import json
+import os
 
 from common import api, browser_tokens, state, wait, wait_no_view_transition
 from playwright.sync_api import sync_playwright
@@ -12,6 +13,9 @@ with sync_playwright() as p:
     browser = p.chromium.launch(executable_path="/opt/pw-browsers/chromium", args=["--no-sandbox"])
     ctx = browser.new_context(viewport={"width": 1000, "height": 1000}, locale="fr-FR")
     ctx.add_init_script(f"localStorage.setItem('hassTokens', JSON.stringify({json.dumps(browser_tokens())}));")
+    if os.environ.get("E2E_LEGACY_DIALOG"):  # an older Home Assistant: only the old dialog API exists
+        ctx.add_init_script("""const g = customElements.get.bind(customElements);
+          customElements.get = (n) => (n === 'ha-wa-dialog' ? undefined : g(n));""")
     page = ctx.new_page()
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
@@ -29,7 +33,7 @@ with sync_playwright() as p:
 
     def dialog_text():
         """All the text of the dialog, through the shadow roots of Home Assistant's components (innerText stops at them)."""
-        return page.locator("solarprio-panel ha-dialog").evaluate("""root => {
+        return page.locator("solarprio-panel :is(ha-wa-dialog, ha-dialog)").evaluate("""root => {
           const out = [];
           const walk = (node) => {
             if (node.nodeType === 3) { out.push(node.textContent); return; }
@@ -41,13 +45,13 @@ with sync_playwright() as p:
         }""")
 
     def button(text):
-        return page.locator("solarprio-panel ha-dialog ha-button", has_text=text)
+        return page.locator("solarprio-panel :is(ha-wa-dialog, ha-dialog) ha-button", has_text=text)
 
     def field(label):
         return panel.get_by_label(label).first
 
     def picker(label):
-        return page.locator("solarprio-panel ha-dialog ha-selector", has_text=label).locator("ha-entity-picker").first
+        return page.locator("solarprio-panel :is(ha-wa-dialog, ha-dialog) ha-selector", has_text=label).locator("ha-entity-picker").first
 
     def choose_entity(label, query, name):
         picker(label).click()
@@ -76,8 +80,13 @@ with sync_playwright() as p:
     # ---- add: ready-made models, then the other types
     page.locator("solarprio-panel #btn-add").click()
     button("Chauffe-eau sur routeur solaire").wait_for()
-    presets = [t for t in page.locator("solarprio-panel ha-dialog ha-button").all_inner_texts() if "Chauffe-eau sur" in t or "Victron" in t]
-    kinds = [t for t in page.locator("solarprio-panel ha-dialog ha-button").all_inner_texts() if t not in presets and t != "Annuler"]
+    presets = [t for t in page.locator("solarprio-panel :is(ha-wa-dialog, ha-dialog) ha-button").all_inner_texts() if "Chauffe-eau sur" in t or "Victron" in t]
+    kinds = [t for t in page.locator("solarprio-panel :is(ha-wa-dialog, ha-dialog) ha-button").all_inner_texts() if t not in presets and t != "Annuler"]
+    # the dialog shows its title and its Cancel button inside the window (a dialog API mismatch shows neither)
+    cancel = button("Annuler").first
+    box = cancel.bounding_box()
+    assert box and 0 <= box["y"] < 1000 and box["height"] > 0, f"Cancel button not visible: {box}"
+    assert "Ajouter un appareil" in dialog_text(), "the dialog has no title"
     print("ready-made models:", presets)
     print("types offered:", kinds)
     assert len(presets) == 3 and len(kinds) == 5 and any("Batterie" in k for k in kinds) and any("Tâche informatique" in k for k in kinds)
@@ -96,7 +105,7 @@ with sync_playwright() as p:
     assert field("Attente après un changement").input_value() == "8" and field("Plus grande montée").input_value() == "200"
     page.screenshot(path="panel_add_preset.png", full_page=True)
     page.keyboard.press("Escape")
-    wait(lambda: page.locator("solarprio-panel ha-dialog").count() == 0, 10, "dialog closed with Escape")
+    wait(lambda: page.locator("solarprio-panel :is(ha-wa-dialog, ha-dialog)").count() == 0, 10, "dialog closed with Escape")
 
     # ---- a plain on/off device
     page.locator("solarprio-panel #btn-add").click()
@@ -160,7 +169,7 @@ with sync_playwright() as p:
     field("Puissance maximale").wait_for()
     field("Puissance maximale").fill("999")
     button("Annuler").click()
-    wait(lambda: page.locator("solarprio-panel ha-dialog").count() == 0, 10, "dialog closed by Cancel")
+    wait(lambda: page.locator("solarprio-panel :is(ha-wa-dialog, ha-dialog)").count() == 0, 10, "dialog closed by Cancel")
     assert [d["power_w"] for d in ws({"type": "solarprio/state"})["devices"] if d["name"] == NEW] == [650]
 
     # ---- site settings: invalid value refused, valid one saved and applied
@@ -188,7 +197,7 @@ with sync_playwright() as p:
     page.locator(f"solarprio-panel li.row:has-text('{NEW}') .remove").click()
     button("Supprimer").wait_for()
     button("Annuler").click()
-    wait(lambda: page.locator("solarprio-panel ha-dialog").count() == 0, 10, "confirmation cancelled")
+    wait(lambda: page.locator("solarprio-panel :is(ha-wa-dialog, ha-dialog)").count() == 0, 10, "confirmation cancelled")
     assert rows.count() == 4
     page.locator(f"solarprio-panel li.row:has-text('{NEW}') .remove").click()
     button("Supprimer").click()

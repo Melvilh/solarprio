@@ -3,9 +3,11 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.3] - 2026-11-09
 
 ### Fixed
+- The panel's dialogs showed no title and no Save/Cancel buttons on Home Assistant 2026.11 (it uses a new dialog API). The panel
+  now uses the new API when it exists and the old one otherwise; both are tested in a real browser.
 - Home Assistant warned about a blocking call at start-up: the panel file is now hashed outside the event loop (0.2.2).
 - The panel module could be evaluated twice in one page ("the name solarprio-panel has already been used"): the element is
   now defined only once.
