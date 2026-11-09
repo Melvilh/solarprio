@@ -52,7 +52,7 @@ api:
       - light.turn_off: gradateur
       - lambda: |-
           id(sortie_w) = 0.0f;
-          id(ordre_ms) = 0;         # the last order is no longer valid
+          id(ordre_ms) = 0;         // the last order is no longer valid
 
 ota:
   - platform: esphome
