@@ -150,7 +150,7 @@
           "deadband_w": "Do not change the power for a few watts: it only wears the equipment and makes the measurement hunt. Going to or from zero is never ignored.",
           "offpeak_extra": "Same format as the windows above, for example 12:30-14:30 for the midday off-peak hours. They count as off-peak only while the \"extra windows\" switch of this device is on (created by solarprio), so you can choose from Home Assistant whether to heat at midday. If you also fill the signal entity, both must still say off-peak.",
           "sanitary_forced_only": "The sanitary minimum (see \"Sanitary minimum\" above) heats from the grid only while the \"forced run\" switch of this device is on. Without this option it heats automatically whenever the water is too cold.",
-          "offpeak_site": "The device is fed from the grid in the off-peak hours of the Settings (signal entity, windows and extra windows) instead of its own below. Anything you fill in below for this device wins over the Settings."
+          "offpeak_site": "The device is fed from the grid in the off-peak hours set in the Settings of the site (signal entity, windows and extra windows). The hours are set once there, for every device: this is the only place. A device that does not tick this is not fed in off-peak hours."
         }
       },
       "import_energy": {
@@ -193,12 +193,12 @@
   "entity": {
     "binary_sensor": {
       "hot": {
-        "name": "hot"
+        "name": "{device} hot"
       }
     },
     "sensor": {
       "heating_mode": {
-        "name": "mode",
+        "name": "{device} mode",
         "state": {
           "idle": "Idle",
           "solar": "Solar surplus",
@@ -213,14 +213,32 @@
           "forced_limited": "Forced (limited by the subscription)",
           "no_cap": "Forced run refused: set a subscription limit"
         }
+      },
+      "available_power": {
+        "name": "Available power"
+      },
+      "routed_power": {
+        "name": "Routed power"
+      },
+      "status": {
+        "name": "Status"
+      },
+      "device_command": {
+        "name": "{device} command"
       }
     },
     "switch": {
       "forced_run": {
-        "name": "forced run"
+        "name": "{device} forced run"
       },
       "extra_windows": {
-        "name": "extra off-peak windows"
+        "name": "{device} extra off-peak windows"
+      },
+      "routing": {
+        "name": "Routing"
+      },
+      "offpeak_hours": {
+        "name": "{device} off-peak hours"
       }
     }
   }

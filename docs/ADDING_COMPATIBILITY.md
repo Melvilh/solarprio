@@ -142,10 +142,17 @@ scripts/test_ha.sh               # Home Assistant integration
 
 ## Level 4 — a translation
 
-Copy `custom_components/solarprio/translations/en.json` to `<lang>.json` and translate the values (a test checks the
-keys match `strings.json`). The sidebar panel keeps its own small dictionaries in
-`custom_components/solarprio/frontend/panel.js` (the object `T`, with one entry per language), chosen from Home
-Assistant's language; add yours next to `en` and `fr`.
+Everything the user reads exists in English and French, and any other language can be added by anyone: no code is needed.
+
+1. Copy `custom_components/solarprio/translations/en.json` to `<lang>.json` (for example `es.json`) and translate the values: the
+   forms, the names of the entities solarprio creates (the `entity` section, `{device}` is replaced by the device's name) and
+   the setup screens. Also copy `strings.json`'s structure: a test checks that `strings.json`, `en.json` and the other languages
+   have the same keys.
+2. The sidebar panel keeps its own dictionaries in `custom_components/solarprio/frontend/panel.js` (the object `T`, one entry per
+   language, chosen from Home Assistant's language): add yours next to `en` and `fr`.
+3. Run `python scripts/check_translations.py <lang>`: it lists every text your language still lacks, in both places. A language
+   that lacks a text falls back to English, so a partial translation already works and can be improved by later pull requests.
+   Without a language argument the script checks every language, and the test suite fails if one is incomplete.
 
 ## Pull request checklist
 

@@ -5,7 +5,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import async_mock_service
 
-from .test_integration import GRID, _add_device, coordinator, dev, setup
+from .test_integration import DATA, GRID, _add_device, coordinator, dev, setup
 from .test_offpeak import LOADS, Sim
 
 TARIFF = "sensor.linky_periode_tarifaire"
@@ -97,27 +97,24 @@ async def test_a_lost_grid_measurement_still_switches_off_during_off_peak(hass: 
         assert not sim.on["ecs"]
 
 
-async def test_form_takes_a_signal_entity_alone_or_together_with_windows(hass: HomeAssistant):
+async def test_the_site_signal_alone_or_with_windows_reaches_the_devices_without_hours_of_their_own(hass: HomeAssistant):
     async_mock_service(hass, "homeassistant", "turn_off")
     hass.states.async_set(GRID, "0", W)
-    entry = await setup(hass, devices=[])
+    hass.states.async_set(TARIFF, "HC..")
+    site = {**DATA, "offpeak_entity": TARIFF, "offpeak_values": "HC.., 2"}  # the signal is set once, for the whole site
+    entry = await setup(hass, data=site, devices=[])
     form = {"name": "Water heater", "entity_id": "switch.heater", "priority": 1, "power_w": 2000, "min_on_s": 0, "min_off_s": 0,
-            "start_margin_w": 0, "stay_tolerance_w": 0}
-
-    bad = await _add_device(hass, entry, "on_off", {**form, "offpeak_entity": TARIFF})  # no measured power sensor, no temperature
-    assert bad["type"] is FlowResultType.FORM and bad["errors"] == {"base": "invalid_device"}
-
-    good = await hass.config_entries.options.async_configure(
-        bad["flow_id"], {**form, "offpeak_entity": TARIFF, "offpeak_values": "HC.., 2", "measured_entity": "sensor.ecs_power"})
+            "start_margin_w": 0, "stay_tolerance_w": 0, "measured_entity": "sensor.ecs_power"}
+    good = await _add_device(hass, entry, "on_off", form)
     assert good["type"] is FlowResultType.CREATE_ENTRY
     saved = entry.options["devices"][0]
-    assert saved["offpeak_entity"] == TARIFF and saved["offpeak_values"] == "HC.., 2"
+    assert "offpeak_entity" not in saved  # nothing of its own: the site's signal is used
     await hass.async_block_till_done()
     assert coordinator(hass, entry).engine.device("water_heater").offpeak_signal is True
 
-    both = await _add_device(hass, entry, "on_off", {**form, "name": "Both", "offpeak_entity": TARIFF, "offpeak": "22:30-06:30",
-                                                      "measured_entity": "sensor.ecs_power"})
-    assert both["type"] is FlowResultType.CREATE_ENTRY  # the tariff signal, but only during the night windows
-    await hass.async_block_till_done()
-    device = coordinator(hass, entry).engine.device("both")
+    # the tariff signal and the site's windows together: both must say off-peak
+    both_site = {**site, "offpeak": "22:30-06:30"}
+    entry2 = await setup(hass, data=both_site, devices=[dev(id="both", name="Both", entity_id="switch.b", power_w=2000,
+                                                            measured_entity="sensor.ecs_power", min_on_s=0, min_off_s=0)])
+    device = coordinator(hass, entry2).engine.device("both")
     assert device.offpeak_signal and device.windows

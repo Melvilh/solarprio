@@ -83,14 +83,15 @@ async def test_the_form_offers_the_new_options_and_the_panel_saves_them(hass: Ho
         client = await hass_ws_client(hass)
         form = (await ws(client, type="solarprio/device_form", kind="on_off", language="fr"))["result"]
         names = {f["name"]: f for f in form["fields"]}
-        assert "offpeak_extra" in names and "sanitary_forced_only" in names
+        assert "sanitary_forced_only" in names and not {"offpeak_site", "offpeak_extra", "offpeak"} & set(names)
         assert names["sanitary_forced_only"]["label"] != "sanitary_forced_only"  # translated
         saved = await ws(client, type="solarprio/device_save", kind="on_off", values={
             "name": "ECS", "entity_id": "switch.ecs", "priority": 1, "power_w": 2400, "temp_entity": TEMP, "temp_max_solar": 65,
-            "temp_min": 40, "sanitary_forced_only": True, "offpeak": "22:30-06:30", "offpeak_extra": "12:30-14:30",
+            "temp_min": 40, "sanitary_forced_only": True,
             "measured_entity": "sensor.chauffe_eau_puissance"})
         assert saved["success"], saved
         await hass.async_block_till_done()
         coord = coordinator(hass, hass.config_entries.async_entries(DOMAIN)[0])
         device = coord.engine.device("ecs")
-        assert device.sanitary_forced_only and len(device.windows_extra) == 1
+        assert device.sanitary_forced_only
+        assert hass.config_entries.async_entries(DOMAIN)[0].options["devices"][0]["sanitary_forced_only"] is True

@@ -61,22 +61,38 @@ DEVICE_FIELDS = (
 )
 
 
-def with_site_offpeak(cfg: dict[str, Any], site: dict[str, Any]) -> dict[str, Any]:
-    """The device settings with the site's off-peak hours filled in, for a device that follows them.
+OWN_OFFPEAK_KEYS = ("offpeak_entity", "offpeak_values", "offpeak", "offpeak_extra")
 
-    What the device sets itself wins: a device with its own off-peak entity keeps it (and its states), one with its own windows
-    keeps them.
+
+def site_has_offpeak(site: dict[str, Any]) -> bool:
+    return any(site.get(k) for k in (CONF_OFFPEAK_ENTITY, CONF_OFFPEAK_WINDOWS, CONF_OFFPEAK_EXTRA))
+
+
+def has_own_offpeak(cfg: dict[str, Any]) -> bool:
+    """An older configuration whose off-peak hours are written on the device itself (the forms no longer offer them)."""
+    return not cfg.get("offpeak_site") and any(cfg.get(k) for k in ("offpeak_entity", "offpeak", "offpeak_extra"))
+
+
+def uses_site_hours(cfg: dict[str, Any], site: dict[str, Any]) -> bool:
+    """The device uses the off-peak hours of the site (chosen with its "off-peak hours" switch): the Settings have some, the
+    device has none of its own, and it is not a battery."""
+    return site_has_offpeak(site) and not has_own_offpeak(cfg) and cfg.get("kind") != DeviceKind.BATTERY.value
+
+
+def with_site_offpeak(cfg: dict[str, Any], site: dict[str, Any]) -> dict[str, Any]:
+    """The device settings with the site's off-peak hours, for a device that uses them.
+
+    The off-peak hours are set once, in the Settings of the site. A device then only chooses, with its switch, whether to use them
+    (router and off-peak hours) or not (the router only). It uses the site's hours only, whatever older settings of its own it may
+    carry from a previous version; a device with off-peak hours of its own (an older configuration) keeps them.
     """
-    if not cfg.get("offpeak_site"):
+    if not uses_site_hours(cfg, site):
         return cfg
-    out = dict(cfg)
-    if not cfg.get("offpeak_entity") and site.get(CONF_OFFPEAK_ENTITY):
-        out["offpeak_entity"] = site[CONF_OFFPEAK_ENTITY]
-        out["offpeak_values"] = site.get(CONF_OFFPEAK_VALUES) or cfg.get("offpeak_values")
-    if not cfg.get("offpeak") and site.get(CONF_OFFPEAK_WINDOWS):
-        out["offpeak"] = site[CONF_OFFPEAK_WINDOWS]
-    if not cfg.get("offpeak_extra") and site.get(CONF_OFFPEAK_EXTRA):
-        out["offpeak_extra"] = site[CONF_OFFPEAK_EXTRA]
+    out = {k: v for k, v in cfg.items() if k not in OWN_OFFPEAK_KEYS}
+    for key, conf_key in (("offpeak_entity", CONF_OFFPEAK_ENTITY), ("offpeak_values", CONF_OFFPEAK_VALUES),
+                          ("offpeak", CONF_OFFPEAK_WINDOWS), ("offpeak_extra", CONF_OFFPEAK_EXTRA)):
+        if site.get(conf_key):
+            out[key] = site[conf_key]
     return out
 
 
@@ -118,6 +134,9 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             subscription_va=float(self._conf.get(CONF_SUBSCRIPTION) or 0) or None,
             emergency_import_w=float(self._conf.get(CONF_EMERGENCY) or 0) or None,
         )
+        for cfg in self.device_cfgs.values():  # on the site's hours the router only, until the device's switch says otherwise
+            if uses_site_hours(cfg, self._conf):
+                self.engine.set_offpeak(cfg["id"], False)
         self.enabled = True
         self._sent: dict[str, tuple[float, float]] = {}  # device -> (power_w, monotonic time it was sent)
 
@@ -323,6 +342,14 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     # ---- live changes from the panel ----------------------------------
 
+    def uses_site_hours(self, device_id: str) -> bool:
+        return uses_site_hours(self.device_cfgs[device_id], self._conf)
+
+    def set_offpeak_enabled(self, device_id: str, on: bool) -> None:
+        """The "off-peak hours" switch of a device: on = the router and the off-peak hours, off = the router only."""
+        if device_id in self.device_cfgs:
+            self.engine.set_offpeak(device_id, on)
+
     def set_forced_run(self, device_id: str, on: bool) -> None:
         """The "forced run" switch of a device (its sanitary minimum only feeds it while this is on)."""
         if device_id in self.device_cfgs:
@@ -370,6 +397,8 @@ class SolarPrioCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "offpeak": self.engine.offpeak_status(cfg["id"], dt_util.now()),
             "mode": self.engine.mode(cfg["id"]),
             "hot": self.engine.is_hot(cfg["id"]),
+            # "router_offpeak": the router and the off-peak hours; "router_only": the router only; None: no off-peak hours
+            "offpeak_mode": {True: "router_offpeak", False: "router_only", None: None}[self.engine.offpeak_in_use(cfg["id"])],
             "forced_run": self.engine.state(cfg["id"]).forced_run,
             "extra_windows": self.engine.state(cfg["id"]).extra_on,
             "temperature_c": reading.temperature if reading else None,

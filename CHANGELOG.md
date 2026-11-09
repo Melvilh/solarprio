@@ -6,8 +6,15 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
-- The panel warns when a numeric off-peak entity (an energy index) is chosen for the site Settings, and when a device ticked
-  "Follow the site off-peak hours" still has its own off-peak entity or windows filled in (they win over the site's).
+- **The off-peak hours are only in the Settings of the site.** The device forms no longer ask for an off-peak entity, states or
+  windows. Each device (except a battery) has an **"off-peak hours" switch**: on = the router and the off-peak hours, off = the
+  router only (the default). The panel shows "router + off-peak hours" or "router only" on each device's line. An older
+  configuration with off-peak hours of its own keeps them (its switch starts on), also when the device is edited.
+- **Translations**: every entity solarprio creates now has its name in the user's language (English and French), with the device's name
+  in it; `scripts/check_translations.py` lists what a new language still lacks and a test keeps the languages complete. Adding a
+  language is described in `docs/ADDING_COMPATIBILITY.md`.
+- The panel warns when a numeric off-peak entity (an energy index) is chosen as the off-peak signal, for the site Settings or
+  for a device that follows the site.
 
 ## [0.3.0] - 2026-11-09
 

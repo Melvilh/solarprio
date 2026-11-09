@@ -26,13 +26,14 @@ class HotSensor(CoordinatorEntity[SolarPrioCoordinator], BinarySensorEntity):
     """On while the tank is at or above a maximum temperature (until it has cooled down by the hysteresis)."""
 
     _attr_has_entity_name = True
+    _attr_translation_key = "hot"
     _attr_device_class = BinarySensorDeviceClass.HEAT
 
     def __init__(self, coordinator: SolarPrioCoordinator, entry: ConfigEntry, device_id: str, name: str) -> None:
         super().__init__(coordinator)
         self._device_id = device_id
         self._attr_unique_id = f"{entry.entry_id}_hot_{device_id}"
-        self._attr_name = f"{name} hot"
+        self._attr_translation_placeholders = {"device": name}
         self._attr_device_info = device_info(entry)
 
     @property

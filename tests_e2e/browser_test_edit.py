@@ -111,11 +111,11 @@ with sync_playwright() as p:
     page.locator("solarprio-panel #btn-add").click()
     button("Charge tout-ou-rien").click()
     field("Nom").wait_for()
-    page.get_by_text("Réglages avancés").first.click()  # the off-peak details are under "advanced settings"
+    page.get_by_text("Réglages avancés").first.click()
     text = dialog_text()
-    assert "Entité du signal heures creuses" in text and "États qui signifient heures creuses" in text, text
-    assert "offpeak_entity" not in text and "offpeak_values" not in text, "raw field names must not be shown"
-    assert "période tarifaire de votre Linky" in text  # the explanation is there
+    # the off-peak hours are set once, in the Settings of the site: the device form has none of them
+    assert "Entité du signal heures creuses" not in text and "Plages heures creuses" not in text, text
+    assert "offpeak" not in text, "raw field names must not be shown"
     page.screenshot(path="panel_add_form.png", full_page=True)
 
     # the entity picker is Home Assistant's: search by name, only the right kinds of entity for an on/off device
@@ -178,6 +178,9 @@ with sync_playwright() as p:
     delay = panel.get_by_label("Mesure considérée perdue après").first
     delay.wait_for()
     assert "Réglages de la mesure" in dialog_text() and "stale_after_s" not in dialog_text()
+    site_text = dialog_text()  # the off-peak hours are here, translated, and only here
+    assert "Signal heures creuses" in site_text and "Plages heures creuses" in site_text and "période tarifaire de votre Linky" in site_text
+    assert "offpeak" not in site_text
     assert delay.input_value() == "3600"
     delay.fill("5000")  # above the 3600 s maximum
     button("Enregistrer").click()

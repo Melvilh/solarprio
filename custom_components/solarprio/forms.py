@@ -162,11 +162,6 @@ def device_fields(kind: str, next_priority: int = 1) -> list[Field]:
 
     if kind != DeviceKind.BATTERY.value:
         fields += [
-            _flag("offpeak_site"),
-            _entity("offpeak_entity", OFFPEAK_SIGNAL_DOMAINS),
-            _text("offpeak", advanced=True),
-            _text("offpeak_extra", advanced=True),
-            _text("offpeak_values", advanced=True),
         ]
         if kind != DeviceKind.TASK.value:  # a task has nothing to measure, so nothing that can be "finished"
             fields += [_text("reset_at", advanced=True), _number("done_below_w", "W", 0, advanced=True),
@@ -228,8 +223,7 @@ def clean_device(kind: str, user_input: dict[str, Any]) -> dict[str, Any]:
     device.update(kind=kind, priority=int(user_input["priority"]))
     if any(device.get(k) is not None for k in ("temp_max_solar", "temp_max_offpeak", "temp_min")) and not device.get("temp_entity"):
         raise ValueError("temperature limits need a temperature sensor")
-    follows = device.get("offpeak") or device.get("offpeak_entity") or device.get("offpeak_site")
-    if follows and not device.get("measured_entity") and kind != DeviceKind.TASK.value:
+    if (device.get("offpeak") or device.get("offpeak_entity")) and not device.get("measured_entity") and kind != DeviceKind.TASK.value:
         raise ValueError("off-peak top-up needs a measured power entity")  # it could not tell when the device is finished
     if "phases" in device:
         device["phases"] = int(device["phases"])
@@ -254,6 +248,10 @@ def merge_device(devices: list[dict[str, Any]], device: dict[str, Any], editing:
     # keep the identity and the on/off state of the device being edited
     old = next(d for d in devices if d["id"] == editing)
     edited = {**device, "id": editing, "enabled": old.get("enabled", True)}
+    if not old.get("offpeak_site"):
+        # off-peak settings of the device itself (an older configuration) are no longer in the forms: editing the device must not
+        # lose them silently. (An older "follow the site" choice meant "no hours of its own": nothing is carried over.)
+        edited.update({k: old[k] for k in LEGACY_OFFPEAK_KEYS if k in old and k not in edited})
     return [edited if d["id"] == editing else d for d in devices]
 
 
@@ -309,4 +307,5 @@ def clean_site(user_input: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+LEGACY_OFFPEAK_KEYS = ("offpeak_entity", "offpeak_values", "offpeak", "offpeak_extra")
 _CORE_KEYS = frozenset(DEVICE_FIELDS)

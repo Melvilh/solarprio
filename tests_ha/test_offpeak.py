@@ -8,7 +8,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_mock_service
 
-from .test_integration import GRID, _add_device, coordinator, dev, setup
+from .test_integration import DATA, GRID, _add_device, coordinator, dev, setup
 
 W = {"unit_of_measurement": "W"}
 ECS = dev(id="ecs", name="Water heater", entity_id="switch.ecs", priority=1, power_w=2000, measured_entity="sensor.ecs_power",
@@ -110,25 +110,19 @@ async def test_a_missing_power_sensor_means_no_top_up(hass: HomeAssistant):
         assert not sim.on["ecs"]
 
 
-async def test_form_saves_the_windows_and_checks_them(hass: HomeAssistant):
+async def test_a_device_added_with_the_form_has_no_hours_of_its_own_and_gets_the_site_windows(hass: HomeAssistant):
     async_mock_service(hass, "homeassistant", "turn_off")
     hass.states.async_set(GRID, "0", W)
-    entry = await setup(hass, devices=[])
+    site = {**DATA, "offpeak": "22:30-06:30, 12:30-14:30"}  # the hours are set once, for the whole site
+    entry = await setup(hass, data=site, devices=[])
     form = {"name": "Water heater", "entity_id": "switch.heater", "priority": 1, "power_w": 2000, "min_on_s": 0, "min_off_s": 0,
-            "start_margin_w": 0, "stay_tolerance_w": 0}
-
-    bad = await _add_device(hass, entry, "on_off", {**form, "offpeak": "22:30-06:30"})  # no measured power sensor
-    assert bad["type"] is FlowResultType.FORM and bad["errors"] == {"base": "invalid_device"}
-    bad = await hass.config_entries.options.async_configure(
-        bad["flow_id"], {**form, "offpeak": "25:00-06:00", "measured_entity": "sensor.ecs_power"})
-    assert bad["errors"] == {"base": "invalid_device"}
-
-    good = await hass.config_entries.options.async_configure(
-        bad["flow_id"], {**form, "offpeak": "22:30-06:30, 12:30-14:30", "reset_at": "07:00", "done_below_w": 40,
-                         "measured_entity": "sensor.ecs_power"})
-    assert good["type"] is FlowResultType.CREATE_ENTRY
+            "start_margin_w": 0, "stay_tolerance_w": 0, "measured_entity": "sensor.ecs_power", "reset_at": "07:00",
+            "done_below_w": 40}
+    result = await _add_device(hass, entry, "on_off", form)
+    assert result["type"] is FlowResultType.CREATE_ENTRY
     saved = entry.options["devices"][0]
-    assert saved["offpeak"] == "22:30-06:30, 12:30-14:30" and saved["reset_at"] == "07:00" and saved["done_after_s"] == 120
+    assert not {"offpeak", "offpeak_entity", "offpeak_values", "offpeak_extra"} & set(saved)  # nothing of its own
+    assert saved["reset_at"] == "07:00" and saved["done_after_s"] == 120
     await hass.async_block_till_done()
     engine_dev = coordinator(hass, entry).engine.device("water_heater")
     assert engine_dev.windows == ((1350, 390), (750, 870)) and engine_dev.reset_minute == 420 and engine_dev.done_threshold_w == 40
@@ -137,8 +131,10 @@ async def test_form_saves_the_windows_and_checks_them(hass: HomeAssistant):
 async def test_forms_offer_the_schedule_except_for_a_battery(hass: HomeAssistant):
     from custom_components.solarprio.config_flow import _details_schema
 
-    fields = {"offpeak", "reset_at", "done_below_w", "done_after_s"}
+    fields = {"reset_at", "done_below_w", "done_after_s"}
     assert not fields & {str(k) for k in _details_schema("battery", {}, 1).schema}
     for kind in ("on_off", "proportional", "ev_charger"):
         keys = {str(k) for k in _details_schema(kind, {}, 1).schema}
         assert fields <= keys and "measured_entity" in keys
+        # the off-peak hours themselves are only in the Settings of the site
+        assert not {"offpeak", "offpeak_entity", "offpeak_values", "offpeak_extra", "offpeak_site"} & keys

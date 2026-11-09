@@ -119,6 +119,16 @@ class Engine:
         """The "forced run" switch of a device (it only matters for ``sanitary_forced_only`` devices)."""
         self._states[device_id].forced_run = bool(on)
 
+    def set_offpeak(self, device_id: str, on: bool) -> None:
+        """The "use the off-peak hours" switch of a device: off means the router only (the surplus), no off-peak top-up."""
+        self._states[device_id].offpeak_on = bool(on)
+
+    def offpeak_in_use(self, device_id: str) -> bool | None:
+        """True: router and off-peak hours. False: the router only. None: the device has no off-peak hours at all."""
+        if not self._devices[device_id].has_schedule:
+            return None
+        return self._states[device_id].offpeak_on
+
     def set_extra_windows(self, device_id: str, on: bool) -> None:
         """Whether the device's ``offpeak_extra`` windows (for example the midday off-peak hours) count as off-peak."""
         self._states[device_id].extra_on = bool(on)
@@ -144,7 +154,7 @@ class Engine:
             fresh.done_cycle = old.done_cycle  # a device found finished tonight is not topped up again tonight
             fresh.signal_prev, fresh.signal_period = old.signal_prev, old.signal_period
             fresh.hot_solar, fresh.hot_offpeak, fresh.cold = old.hot_solar, old.hot_offpeak, old.cold  # real temperatures
-            fresh.forced_run, fresh.extra_on = old.forced_run, old.extra_on  # the user's switches
+            fresh.forced_run, fresh.extra_on, fresh.offpeak_on = old.forced_run, old.extra_on, old.offpeak_on  # the user's switches
             self._states[device_id] = fresh
         self._readings.clear()
         self._shed_until = -math.inf
@@ -220,6 +230,8 @@ class Engine:
         """Off-peak now (window and/or signal), not finished yet, and the end of the heating can be told."""
         if not (dev.enabled and dev.has_schedule) or dev.surplus_only or dev.id in self._temp_fault:
             return False
+        if not state.offpeak_on:
+            return False  # the user chose the router only for this device
         if dev.offpeak_signal and (reading is None or reading.offpeak is not True):
             return False  # unknown or not off-peak: never force on a doubtful signal
         if (dev.windows or dev.windows_extra) and (local is None or not dev.in_offpeak(local, state.extra_on)):

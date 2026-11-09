@@ -55,10 +55,17 @@ Your off-peak hours are the same for every device, so they are set **once**, in 
 - *Extra off-peak windows*: for example the midday hours `12:30-14:30`. They count only for the devices whose
   `extra off-peak windows` switch is on, so each device chooses.
 
-Then each device **chooses** whether to use them: tick *Follow the site off-peak hours* in its form. A device that does not
-tick it is not fed in off-peak hours (it keeps only the surplus), which is what you want for a load that should never run from
-the grid. What a device sets itself (its own entity, its own windows) wins over the site's. When both a signal and windows are
-given, BOTH must say off-peak. The *Off-peak power budget* (also in the Settings) says how much power may be fed at once.
+Then each device **chooses**, with its own switch **"off-peak hours"** (created for every device except batteries), between:
+
+- **router + off-peak hours** (switch on): the surplus first, and the off-peak hours of the Settings in addition;
+- **router only** (switch off): only the surplus, which is what you want for a load that should never run from the grid.
+
+The panel shows which one each device is in. The switch starts **off** (the router only) and keeps its state across restarts, so
+nothing is fed from the grid until you ask. The hours themselves are only in the Settings: a device form has no off-peak
+settings. When both a signal and windows are given, BOTH must say off-peak; with the signal alone, every off-peak period of the
+tariff counts (night and midday). **The windows are optional**: they are only needed to tell the night from the midday, so that
+each device can choose the midday with its `extra off-peak windows` switch. A device configured by an older version with off-peak
+hours of its own keeps using them (its switch starts on). The *Off-peak power budget* (also in the Settings) says how much power may be fed at once.
 
 Whatever feeds a device from the grid on purpose stays under your **subscription limit** (see [REGULATION.md](REGULATION.md)): set
 it, for example 5700 VA on a 6 kVA meter, with the house power sensor. The panel warns when a device can be fed from the grid

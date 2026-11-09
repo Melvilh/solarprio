@@ -212,8 +212,6 @@ def _warnings(hass: HomeAssistant, device: dict[str, Any], coordinator: Any = No
     effective = with_site_offpeak(device, site)  # what the device will really use, the site's hours included
     if _numeric_signal(hass, effective.get("offpeak_entity"), effective.get("offpeak_values")):
         warnings.append("offpeak_numeric")
-    if device.get("offpeak_site") and (device.get("offpeak_entity") or device.get("offpeak") or device.get("offpeak_extra")):
-        warnings.append("offpeak_own_wins")  # ticked "follow the site", but its own hours are filled in and win
     feeds_grid = not device.get("surplus_only") and (
         device.get("offpeak") or device.get("offpeak_entity") or device.get("temp_min") is not None
     )

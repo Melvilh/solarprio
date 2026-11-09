@@ -224,6 +224,7 @@ class DeviceState:
     cold: bool = False  # tank under its sanitary minimum (hysteresis memory)
     forced_run: bool = False  # the "forced run" switch: lets the sanitary minimum feed a device with sanitary_forced_only
     extra_on: bool = False  # the "extra windows" switch: the device's offpeak_extra windows count as off-peak
+    offpeak_on: bool = True  # the "use the off-peak hours" switch: off = the router only (the surplus), no off-peak top-up
     reason: str = "idle"  # what drives the device now: idle, solar, offpeak, sanitary, hot, sensor_fault, limited, disabled
 
     @property

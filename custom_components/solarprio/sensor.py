@@ -21,8 +21,8 @@ def device_info(entry: ConfigEntry) -> DeviceInfo:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     coordinator: SolarPrioCoordinator = hass.data[DOMAIN][entry.entry_id]
     entities: list[SensorEntity] = [
-        SummarySensor(coordinator, entry, "available_w", "Available power"),
-        SummarySensor(coordinator, entry, "routed_w", "Routed power"),
+        SummarySensor(coordinator, entry, "available_w", "available_power"),
+        SummarySensor(coordinator, entry, "routed_w", "routed_power"),
         StatusSensor(coordinator, entry),
     ]
     entities += [DeviceSensor(coordinator, entry, d["id"], d["name"]) for d in coordinator.device_cfgs.values()]
@@ -33,10 +33,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 class _Base(CoordinatorEntity[SolarPrioCoordinator], SensorEntity):
     _attr_has_entity_name = True
 
-    def __init__(self, coordinator: SolarPrioCoordinator, entry: ConfigEntry, key: str, name: str) -> None:
+    def __init__(self, coordinator: SolarPrioCoordinator, entry: ConfigEntry, key: str, translation_key: str,
+                 device_name: str | None = None) -> None:
+        """``translation_key``: the name of the entity in the user's language (strings.json); ``device_name`` fills its {device}."""
         super().__init__(coordinator)
         self._attr_unique_id = f"{entry.entry_id}_{key}"
-        self._attr_name = name
+        self._attr_translation_key = translation_key
+        if device_name is not None:
+            self._attr_translation_placeholders = {"device": device_name}
         self._attr_device_info = device_info(entry)
 
 
@@ -45,8 +49,8 @@ class SummarySensor(_Base):
     _attr_native_unit_of_measurement = UnitOfPower.WATT
     _attr_state_class = SensorStateClass.MEASUREMENT
 
-    def __init__(self, coordinator, entry, key: str, name: str) -> None:
-        super().__init__(coordinator, entry, key, name)
+    def __init__(self, coordinator, entry, key: str, translation_key: str) -> None:
+        super().__init__(coordinator, entry, key, translation_key)
         self._key = key
 
     @property
@@ -56,7 +60,7 @@ class SummarySensor(_Base):
 
 class StatusSensor(_Base):
     def __init__(self, coordinator, entry) -> None:
-        super().__init__(coordinator, entry, "status", "Status")
+        super().__init__(coordinator, entry, "status", "status")
 
     @property
     def native_value(self) -> str | None:
@@ -72,11 +76,9 @@ class HeatingModeSensor(_Base):
 
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_options = MODES
-    _attr_translation_key = "heating_mode"
 
     def __init__(self, coordinator, entry, device_id: str, name: str) -> None:
-        super().__init__(coordinator, entry, f"mode_{device_id}", f"{name} mode")
-        self._attr_has_entity_name = True
+        super().__init__(coordinator, entry, f"mode_{device_id}", "heating_mode", name)
         self._device_id = device_id
 
     @property
@@ -93,7 +95,7 @@ class DeviceSensor(_Base):
     _attr_state_class = SensorStateClass.MEASUREMENT
 
     def __init__(self, coordinator, entry, device_id: str, name: str) -> None:
-        super().__init__(coordinator, entry, f"cmd_{device_id}", f"{name} command")
+        super().__init__(coordinator, entry, f"cmd_{device_id}", "device_command", name)
         self._device_id = device_id
 
     @property

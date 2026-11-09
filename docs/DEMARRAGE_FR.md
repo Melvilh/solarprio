@@ -84,7 +84,9 @@ Dans le panneau solarprio, bouton **Réglages** :
 - **Signal heures creuses** (la période tarifaire du Linky, `HC..` / `HP..`, pas l'index d'énergie), **Plages heures creuses** (nuit)
   et **Plages supplémentaires** (midi) : réglés **une seule fois** pour tout le site.
 
-Ensuite, dans chaque appareil, cochez **Suivre les heures creuses du site** si vous voulez qu'il en profite. Une voiture ou une
+Ensuite, chaque appareil (sauf une batterie) a son interrupteur **« heures creuses »** : allumé, l'appareil utilise **le routeur et
+les heures creuses** ; éteint, il n'utilise **que le routeur** (le surplus). Il démarre éteint et le panneau affiche
+« routeur + heures creuses » ou « routeur seul » sur la ligne de l'appareil. Une voiture ou une
 batterie a aussi un interrupteur **marche forcée** : elle charge depuis le réseau tout de suite, sous la limite d'abonnement et
 jusqu'à son niveau de charge maximal. Elle est refusée tant qu'aucune limite d'abonnement n'est réglée.
 

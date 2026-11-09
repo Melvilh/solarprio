@@ -30,12 +30,13 @@ async def test_the_form_comes_with_labels_help_and_type_names_in_the_users_langu
     fr = (await ws(client, type="solarprio/device_form", kind="on_off", language="fr"))["result"]
     en = (await ws(client, type="solarprio/device_form", kind="on_off", language="en"))["result"]
     label = lambda r, name: next(f for f in r["fields"] if f["name"] == name)  # noqa: E731
-    assert label(fr, "offpeak_entity")["label"] == "Entité du signal heures creuses (facultatif)"
-    assert label(en, "offpeak_entity")["label"] == "Off-peak signal entity (optional)"
-    assert label(fr, "offpeak_entity")["description"] and label(en, "offpeak_values")["description"]
+    assert label(fr, "sanitary_forced_only")["label"] == "Minimum sanitaire seulement en marche forcée"
+    assert label(en, "sanitary_forced_only")["label"] == "Sanitary minimum only on a forced run"
+    assert label(fr, "sanitary_forced_only")["description"] and label(en, "sanitary_forced_only")["description"]
+    assert not {"offpeak_entity", "offpeak", "offpeak_values", "offpeak_extra"} & {f["name"] for f in en["fields"]}  # only in Settings
     assert fr["kinds"]["battery"] == "Batterie" and en["kinds"]["battery"] == "Battery"
     unknown = (await ws(client, type="solarprio/device_form", kind="on_off", language="xx"))["result"]
-    assert label(unknown, "offpeak_entity")["label"] == "Off-peak signal entity (optional)"  # falls back to English
+    assert label(unknown, "sanitary_forced_only")["label"] == "Sanitary minimum only on a forced run"  # falls back to English
 
 
 @pytest.mark.parametrize("kind", KINDS)

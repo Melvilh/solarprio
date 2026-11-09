@@ -150,7 +150,7 @@
           "deadband_w": "Ne pas changer la puissance pour quelques watts : cela use le matériel et fait osciller la mesure. Passer à zéro ou en repartir n'est jamais ignoré.",
           "offpeak_extra": "Même format que les plages ci-dessus, par exemple 12:30-14:30 pour les heures creuses du midi. Elles ne comptent comme heures creuses que lorsque l'interrupteur « plages supplémentaires » de cet appareil est activé (créé par solarprio) : vous choisissez depuis Home Assistant de chauffer ou non le midi. Si vous renseignez aussi l'entité de signal, les deux doivent encore indiquer heures creuses.",
           "sanitary_forced_only": "Le minimum sanitaire (voir « Minimum sanitaire » plus haut) ne chauffe depuis le réseau que lorsque l'interrupteur « marche forcée » de cet appareil est activé. Sans cette option, il chauffe automatiquement dès que l'eau est trop froide.",
-          "offpeak_site": "L'appareil est alimenté depuis le réseau pendant les heures creuses des Réglages (entité de signal, plages et plages supplémentaires) au lieu des siennes ci-dessous. Tout ce que vous renseignez ci-dessous pour cet appareil l'emporte sur les Réglages."
+          "offpeak_site": "L'appareil est alimenté depuis le réseau pendant les heures creuses réglées dans les Réglages du site (entité de signal, plages et plages supplémentaires). Les heures se règlent une seule fois là-bas, pour tous les appareils : c'est le seul endroit. Un appareil qui ne coche pas ceci n'est pas alimenté en heures creuses."
         }
       },
       "import_energy": {
@@ -193,12 +193,12 @@
   "entity": {
     "binary_sensor": {
       "hot": {
-        "name": "chaud"
+        "name": "{device} chaud"
       }
     },
     "sensor": {
       "heating_mode": {
-        "name": "mode",
+        "name": "{device} mode de chauffe",
         "state": {
           "idle": "Au repos",
           "solar": "Surplus solaire",
@@ -213,14 +213,32 @@
           "forced_limited": "Forcé (limité par l'abonnement)",
           "no_cap": "Marche forcée refusée : réglez une limite d'abonnement"
         }
+      },
+      "available_power": {
+        "name": "Puissance disponible"
+      },
+      "routed_power": {
+        "name": "Puissance routée"
+      },
+      "status": {
+        "name": "État"
+      },
+      "device_command": {
+        "name": "{device} commande"
       }
     },
     "switch": {
       "forced_run": {
-        "name": "marche forcée"
+        "name": "{device} marche forcée"
       },
       "extra_windows": {
-        "name": "plages heures creuses supplémentaires"
+        "name": "{device} plages heures creuses supplémentaires"
+      },
+      "routing": {
+        "name": "Routage"
+      },
+      "offpeak_hours": {
+        "name": "{device} heures creuses"
       }
     }
   }

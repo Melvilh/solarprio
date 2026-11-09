@@ -137,3 +137,30 @@ def test_the_standalone_runtime_refuses_options_it_has_no_switch_for():
         bad = {**base, "device": [{**base["device"][0], **extra}]}
         with pytest.raises(ConfigError, match="Home Assistant"):
             parse_config(bad)
+
+
+# ---- "use the off-peak hours" switch: off = the router only
+
+def test_with_the_off_peak_switch_off_the_device_uses_only_the_surplus_and_it_says_so():
+    e = Engine([heater(offpeak=("22:30-06:30",), temp_min=None)])
+    read(e, temp=50.0)
+    assert e.offpeak_in_use("ecs") is True  # the default: router and off-peak hours
+    e.set_offpeak("ecs", False)
+    assert e.offpeak_in_use("ecs") is False
+    assert e.step(0.0, 0.0, NIGHT)["ecs"] == 0  # night, off-peak, but the user chose the router only: no surplus, nothing
+    assert e.step(3000.0, 5.0, NIGHT)["ecs"] == 2400  # the surplus is still used
+    e.set_offpeak("ecs", True)
+    read(e, temp=50.0)
+    assert e.step(0.0, 10.0, NIGHT)["ecs"] == 2400 and e.mode("ecs") == "offpeak"
+
+
+def test_a_device_without_any_off_peak_hours_has_no_off_peak_mode_to_show():
+    e = Engine([heater(temp_min=None)])
+    assert e.offpeak_in_use("ecs") is None
+
+
+def test_the_off_peak_switch_does_not_touch_the_sanitary_minimum_or_the_forced_run():
+    e = Engine([heater(offpeak=("22:30-06:30",), sanitary_forced_only=False)])
+    e.set_offpeak("ecs", False)
+    read(e, temp=30.0)  # cold: the sanitary minimum is a safety, not an off-peak top-up
+    assert e.step(0.0, 0.0, NIGHT)["ecs"] == 2400 and e.mode("ecs") == "sanitary"

@@ -145,8 +145,7 @@ async def test_a_device_can_be_copied_and_only_its_entities_change(hass: HomeAss
     async_mock_service(hass, "homeassistant", "turn_off")
     hass.states.async_set(GRID, "0", W)
     source = dev(id="evse1", name="EVSE 1", entity_id="switch.evse1", priority=1, power_w=7000, min_on_s=300, min_off_s=120,
-                 start_margin_w=200, stay_tolerance_w=100, measured_entity="sensor.evse1_power", offpeak="22:30-06:30",
-                 done_after_s=90)
+                 start_margin_w=200, stay_tolerance_w=100, measured_entity="sensor.evse1_power", done_after_s=90)
     entry = await setup(hass, devices=[source])
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert "copy_select" in result["menu_options"]
@@ -155,12 +154,12 @@ async def test_a_device_can_be_copied_and_only_its_entities_change(hass: HomeAss
     assert result["step_id"] == "device_details"
     assert default_of(result, "name") == "EVSE 1 2" and default_of(result, "priority") == 2  # next free priority
     assert default_of(result, "power_w") == 7000 and default_of(result, "min_on_s") == 300
-    assert suggestion(result, "offpeak") == "22:30-06:30"  # the schedule is copied, not the entities
+    assert default_of(result, "done_after_s") == 90  # the settings are copied, not the entities
     assert suggestion(result, "measured_entity") is None  # entities are never copied: they would control the same load
 
     form = {"name": "EVSE 2", "entity_id": "switch.evse2", "priority": 2, "power_w": 7000, "min_on_s": 300, "min_off_s": 120,
             "start_margin_w": 200, "stay_tolerance_w": 100, "measured_entity": "sensor.evse2_power",
-            "offpeak": "22:30-06:30", "done_below_w": 0, "done_after_s": 90}
+            "done_below_w": 0, "done_after_s": 90}
     result = await hass.config_entries.options.async_configure(result["flow_id"], form)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert [d["id"] for d in entry.options["devices"]] == ["evse1", "evse_2"]
