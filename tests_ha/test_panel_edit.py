@@ -231,3 +231,24 @@ def test_the_panel_address_changes_with_the_file_so_a_browser_never_keeps_an_old
     first = panel._asset_version()
     fake.write_text("two")
     assert panel._asset_version() != first and panel._asset_version().startswith(panel.VERSION)
+
+
+async def test_the_panel_file_is_read_outside_the_event_loop(hass):
+    import threading
+    from unittest.mock import patch
+
+    from custom_components.solarprio import panel
+
+    from .test_integration import setup
+    from .test_regulation import DATA
+
+    seen = []
+    real = panel._asset_version
+
+    def spy():
+        seen.append(threading.get_ident())
+        return real()
+
+    with patch.object(panel, "_asset_version", spy):
+        await setup(hass, data=DATA, devices=[])
+    assert seen and threading.get_ident() not in seen  # reading the file in the loop makes Home Assistant warn

@@ -37,13 +37,14 @@ async def async_setup_panel_api(hass: HomeAssistant) -> None:
 async def async_register_panel(hass: HomeAssistant) -> None:
     if PANEL_URL_PATH in hass.data.get("frontend_panels", {}):
         return  # kept across a reload of the entry, so an open panel does not vanish when settings are saved
+    version = await hass.async_add_executor_job(_asset_version)  # reads the file: never in the event loop
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path=PANEL_URL_PATH,
         webcomponent_name="solarprio-panel",
         sidebar_title="solarprio",
         sidebar_icon="mdi:solar-power",
-        module_url=f"{PANEL_STATIC_URL}?v={_asset_version()}",
+        module_url=f"{PANEL_STATIC_URL}?v={version}",
         require_admin=True,
     )
 

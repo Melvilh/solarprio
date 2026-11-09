@@ -813,4 +813,5 @@ function esc(value) {
   return String(value).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 
-customElements.define("solarprio-panel", SolarPrioPanel);
+// the module can be evaluated twice in one page (an update while the page is open): defining the element again would throw
+if (!customElements.get("solarprio-panel")) customElements.define("solarprio-panel", SolarPrioPanel);

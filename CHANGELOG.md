@@ -6,6 +6,9 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
+- Home Assistant warned about a blocking call at start-up: the panel file is now hashed outside the event loop (0.2.2).
+- The panel module could be evaluated twice in one page ("the name solarprio-panel has already been used"): the element is
+  now defined only once.
 - `examples/esphome/solar-router-actuator.yaml` did not compile: a YAML-style `#` comment sat inside a C++ lambda (found by
   the first real build). A test now rejects `#` inside the examples' C++ blocks.
 
