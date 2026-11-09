@@ -17,7 +17,7 @@ from .core.profiles import localized
 from .forms import PRESETS, Field, clean_device, clean_site, device_fields, merge_device, site_fields
 
 PANEL_JS = Path(__file__).parent / "frontend" / "panel.js"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 
 async def async_setup_panel_api(hass: HomeAssistant) -> None:
