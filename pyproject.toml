@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "solarprio"
-version = "0.3.0"
+version = "0.3.1"
 description = "Priority-based solar surplus routing engine"
 readme = "README.md"
 requires-python = ">=3.11"

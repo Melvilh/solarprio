@@ -3,7 +3,7 @@
 All notable changes are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and the project uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.3.1] - 2026-11-09
 
 ### Added
 - **The off-peak hours are only in the Settings of the site.** The device forms no longer ask for an off-peak entity, states or
