@@ -40,8 +40,11 @@ Check the **sign** with the sun out and little consumption: the sensor must show
 | States meaning off-peak | `HC*` |
 
 The model already sets the rest: hysteresis 3 °C, sanitary minimum 40 °C, wait 8 s, step 200 W, ignore 15 W, minimum run and
-rest 30 s. To use only the **night** off-peak hours (what the old *HC_midi* switch off did), also fill the windows
-(`22:30-06:30`, your own hours): both the tariff signal and the window must then say off-peak.
+rest 30 s. To choose between the **night** only and the night plus the **midday** off-peak hours (the old *HC_midi*
+switch), fill the windows `22:30-06:30` (night, always) and *Extra off-peak windows* `12:30-14:30` (midday): solarprio creates
+the switch `<device> extra off-peak windows`, off after the first install. Both the tariff signal and the window must say
+off-peak. To keep the old *Marche forcée* behaviour (sanitary heating only when you ask), tick *Sanitary minimum only on a
+forced run*: the switch `<device> forced run` is created. Details: [REGULATION.md](REGULATION.md).
 
 **Mistake seen on a real installation**: `sensor.garage_esp_teleinfo_linky_heures_creuses` is an **energy index** (a number
 that only grows), not the tariff period. The period reads `HP..` or `HC..`. The panel warns when the chosen entity gives a
@@ -56,9 +59,12 @@ number.
 | Step up limit, dead zone | *Largest step up*, *Ignore changes under* |
 | Emergency cut on grid import | site *Emergency cut* |
 | `Température Max ... solaire / HC`, hysteresis | the two maximums and the hysteresis of the device |
-| `CE Trop Froid`, *Marche forcée* | *Sanitary minimum* (on as soon as the minimum is set) |
+| `CE Trop Froid` | *Sanitary minimum* (automatic as soon as the minimum is set) |
+| *Marche forcée* | option *Sanitary minimum only on a forced run* and the switch `<device> forced run` |
 | *Surplus uniquement* | *Surplus only* of the device |
-| `Mode HC`, `HC_midi` | the off-peak entity (and optional windows) |
+| `Mode HC` | the off-peak entity (and optional windows) |
+| `HC_midi` | *Extra off-peak windows* and the switch `<device> extra off-peak windows` |
+| `Mode Chauffe-eau Actuel`, "is it hot" | the sensor `<device> mode` and the binary sensor `<device> hot` |
 | Subscription ceiling (`Plafond puissance maison`) | site *Subscription limit* with the house power sensor |
 | `Mode Auto`, `Routage Solaire Actif` | the device switch and the routing switch of the panel |
 | Triac temperature, probe fault, API disconnect | **kept in the ESP** (equipment protections) |
