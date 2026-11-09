@@ -1,0 +1,34 @@
+{
+  "id": "generic-water-heater-relay",
+  "brand": "Generic",
+  "model": "Water heater on a relay or contactor (on/off)",
+  "category": "water_heater",
+  "target": "device",
+  "status": "simulated",
+  "docs": "docs/WATER_HEATER_EXAMPLE.md",
+  "label": {
+    "en": "Water heater on a relay or contactor (on/off)",
+    "fr": "Chauffe-eau sur relais ou contacteur (tout-ou-rien)"
+  },
+  "notes": "Usual values for a domestic water heater: starting points, check them with your installer.",
+  "runtime": {
+    "kind": "on_off",
+    "min_on_s": 300,
+    "min_off_s": 300,
+    "temp_max_solar": 65,
+    "temp_max_offpeak": 60,
+    "temp_hysteresis": 3,
+    "temp_min": 40
+  },
+  "ha": {
+    "kind": "on_off",
+    "values": {
+      "min_on_s": 300,
+      "min_off_s": 300,
+      "temp_max_solar": 65,
+      "temp_max_offpeak": 60,
+      "temp_hysteresis": 3,
+      "temp_min": 40
+    }
+  }
+}

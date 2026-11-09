@@ -18,6 +18,9 @@ the battery's charge power would have to be limited, which this setup does **not
 
 ## Setup (standalone runtime over MQTT)
 
+The same configuration is available as profiles (`victron-grid`, `victron-evcs`, see [PROFILES.md](PROFILES.md) and
+`examples/victron-profile.toml`); the steps below apply to both.
+
 1. On the GX device, enable the MQTT broker on the local network (Venus OS settings; check Victron's manual for
    the exact menu of your firmware).
 2. Find the **portal ID** (`<PORTAL_ID>`): subscribe to `N/#` with any MQTT client (for example

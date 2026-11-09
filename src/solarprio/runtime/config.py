@@ -88,7 +88,35 @@ def load_config(path: str | Path) -> Config:
     return parse_config(raw)
 
 
+def apply_profiles(raw: dict[str, Any]) -> dict[str, Any]:
+    """Expand ``profile = "..."`` (and ``params``) of [source] and [[device]]: whatever is written next to it wins."""
+    from ..profiles import ProfileError, deep_merge, expand
+
+    raw = dict(raw)
+    try:
+        src = raw.get("source")
+        if isinstance(src, dict) and "profile" in src:
+            src = dict(src)
+            base = expand(str(src.pop("profile")), src.pop("params", None), "source")
+            mqtt_part = base.pop("mqtt", {})
+            raw["source"] = deep_merge(base, src)
+            raw["mqtt"] = deep_merge(mqtt_part, raw.get("mqtt", {}))
+        devices = []
+        for entry in raw.get("device", []):
+            if "profile" in entry:
+                entry = dict(entry)
+                base = expand(str(entry.pop("profile")), entry.pop("params", None), "device")
+                entry = deep_merge(base, entry)
+            devices.append(entry)
+        if devices:
+            raw["device"] = devices
+    except ProfileError as e:
+        raise ConfigError(str(e)) from e
+    return raw
+
+
 def parse_config(raw: dict[str, Any]) -> Config:
+    raw = apply_profiles(raw)
     runtime = RuntimeConfig(**raw.get("runtime", {}))
     if runtime.on_stale not in ("off", "hold"):
         raise ConfigError("runtime.on_stale must be 'off' or 'hold'")

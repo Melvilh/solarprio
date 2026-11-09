@@ -24,8 +24,10 @@ const T = {
     loadFailed: "Could not open the form.",
     saved: "Saved. Loads are switched off for a moment while the new settings are applied.",
     removed: "Deleted.",
+    invalid: "Invalid value",
     advanced: "Advanced settings",
     presetsTitle: "Ready-made",
+    profileStatus: { simulated: "tested in simulation only", from_docs: "from documentation, untested", untested: "untested" },
     otherTypes: "Other types",
     staleHint: "A sensor that only reports when its value changes can look old. If this one is fine, set the delay to 0 in Settings.",
     warnings: {
@@ -81,8 +83,10 @@ const T = {
     loadFailed: "Impossible d'ouvrir le formulaire.",
     saved: "Enregistré. Les charges sont éteintes un instant, le temps d'appliquer les nouveaux réglages.",
     removed: "Supprimé.",
+    invalid: "Valeur invalide",
     advanced: "Réglages avancés",
     presetsTitle: "Modèles prêts à l'emploi",
+    profileStatus: { simulated: "testé en simulation seulement", from_docs: "d'après la documentation, non testé", untested: "non testé" },
     otherTypes: "Autres types",
     staleHint: "Un capteur qui ne publie que lorsque sa valeur change peut sembler vieux. Si celui-ci est en bon état, mettez le délai à 0 dans Réglages.",
     warnings: {
@@ -118,27 +122,31 @@ const T = {
 };
 
 const STYLE = `
-  :host { display: block; background: var(--primary-background-color); color: var(--primary-text-color);
-          min-height: 100%; font-family: var(--paper-font-body1_-_font-family, Roboto, sans-serif); }
+  :host { display: block; background: var(--primary-background-color); color: var(--primary-text-color); min-height: 100%;
+          font-family: var(--ha-font-family-body, var(--paper-font-body1_-_font-family, Roboto, sans-serif)); }
   .wrap { max-width: 760px; margin: 0 auto; padding: 16px; box-sizing: border-box; }
-  header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  header { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; }
   h1 { font-size: 22px; font-weight: 400; margin: 0; flex: 1; }
-  .card { background: var(--card-background-color, #fff); border-radius: var(--ha-card-border-radius, 12px);
-          box-shadow: var(--ha-card-box-shadow, 0 1px 3px rgba(0,0,0,.2)); padding: 16px; margin-bottom: 16px; }
-  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center; }
+  ha-card { display: block; margin-bottom: 16px; }
+  .card-content { padding: 16px; }
+  .summary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; text-align: center; align-items: start; }
   .summary .label { font-size: 12px; color: var(--secondary-text-color); text-transform: uppercase; letter-spacing: .04em; }
   .summary .value { font-size: 24px; margin-top: 4px; }
+  .summary ha-switch { margin-top: 8px; }
   .status { font-size: 14px; color: var(--secondary-text-color); margin-top: 12px; text-align: center; }
   .status.bad { color: var(--error-color, #db4437); }
+  .status .detail { display: block; font-size: 12px; margin-top: 4px; word-break: break-all; }
+  .status .hint2 { display: block; font-size: 12px; margin-top: 4px; font-style: italic; }
   .hint { color: var(--secondary-text-color); font-size: 14px; margin: 0 0 12px; }
   ul { list-style: none; margin: 0; padding: 0; position: relative; }
-  li.row { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 8px;
+  li.row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 8px;
            background: var(--card-background-color, #fff); border: 1px solid var(--divider-color, #ddd);
-           border-radius: 10px; transition: transform .15s ease, box-shadow .15s ease; }
+           border-radius: var(--ha-card-border-radius, 12px); transition: transform .15s ease, box-shadow .15s ease; }
   li.row.dragging { transition: none; z-index: 2; box-shadow: 0 6px 16px rgba(0,0,0,.3); position: relative; }
   li.row.off { opacity: .55; }
   .handle { cursor: grab; touch-action: none; padding: 8px 4px; border: 0; background: none; color: var(--secondary-text-color); display: flex; }
   .handle:active { cursor: grabbing; }
+  .handle:focus-visible { outline: 2px solid var(--primary-color); border-radius: 4px; }
   .rank { min-width: 28px; height: 28px; border-radius: 50%; background: var(--primary-color); color: var(--text-primary-color, #fff);
           display: flex; align-items: center; justify-content: center; font-weight: 500; font-size: 14px; }
   .info { flex: 1; min-width: 0; }
@@ -148,58 +156,26 @@ const STYLE = `
   .bar > div { height: 100%; background: var(--primary-color); transition: width .3s ease; }
   .power { font-size: 13px; min-width: 76px; text-align: right; color: var(--secondary-text-color); }
   .arrows { display: flex; flex-direction: column; }
-  button.icon { border: 0; background: none; color: var(--secondary-text-color); cursor: pointer; padding: 2px 6px; font-size: 14px; line-height: 1; }
-  button.icon:disabled { opacity: .25; cursor: default; }
-  button.icon:focus-visible, .handle:focus-visible { outline: 2px solid var(--primary-color); border-radius: 4px; }
-  label.switch { position: relative; width: 38px; height: 22px; flex: none; }
-  label.switch input { opacity: 0; width: 100%; height: 100%; margin: 0; position: absolute; cursor: pointer; z-index: 1; }
-  label.switch span { position: absolute; inset: 0; border-radius: 11px; background: var(--disabled-text-color, #bbb); transition: background .2s; }
-  label.switch span::after { content: ""; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .2s; }
-  label.switch input:checked + span { background: var(--primary-color); }
-  label.switch input:checked + span::after { transform: translateX(16px); }
-  label.switch input:focus-visible + span { outline: 2px solid var(--primary-color); outline-offset: 2px; }
-  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--error-color, #db4437);
-           color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 14px; }
+  .arrows ha-icon-button { --mdc-icon-button-size: 24px; --mdc-icon-size: 20px; }
+  li.row > ha-icon-button { --mdc-icon-button-size: 40px; --mdc-icon-size: 20px; color: var(--secondary-text-color); }
   .empty { text-align: center; color: var(--secondary-text-color); padding: 24px 8px; }
-  .status .detail { display: block; font-size: 12px; margin-top: 4px; word-break: break-all; }
-  .toast.ok { background: var(--success-color, #2e7d32); }
-  header .btn { white-space: nowrap; }
-  button.btn { border: 1px solid var(--divider-color, #bbb); background: var(--card-background-color, #fff); color: var(--primary-text-color);
-               border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer; font-family: inherit; }
-  button.btn.primary { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: var(--primary-color); }
-  button.btn.danger { background: var(--error-color, #db4437); color: #fff; border-color: var(--error-color, #db4437); }
-  button.btn:disabled { opacity: .5; cursor: default; }
-  button.btn:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
-  button.icon svg { display: block; }
-  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: flex; align-items: flex-start; justify-content: center;
-             padding: 24px 12px; overflow: auto; z-index: 10; }
-  .dialog { background: var(--card-background-color, #fff); color: var(--primary-text-color); border-radius: 12px; padding: 20px;
-            width: 100%; max-width: 560px; box-sizing: border-box; box-shadow: 0 8px 32px rgba(0,0,0,.4); }
-  .dialog h2 { margin: 0 0 12px; font-size: 20px; font-weight: 400; }
-  .dialog button.kind { display: block; width: 100%; text-align: left; margin-bottom: 8px; padding: 12px 14px; }
-  .field { margin-bottom: 14px; }
-  .field[hidden] { display: none; }
-  .field .lab { display: block; font-size: 13px; color: var(--secondary-text-color); margin-bottom: 4px; }
-  .field input[type=text], .field input[type=number], .field select {
-    width: 100%; box-sizing: border-box; padding: 9px 10px; font-size: 15px; font-family: inherit; color: var(--primary-text-color);
-    background: var(--secondary-background-color, #f5f5f5); border: 1px solid var(--divider-color, #bbb); border-radius: 6px; }
-  .field input:focus-visible, .field select:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 1px; }
-  .field .help { font-size: 12px; color: var(--secondary-text-color); margin-top: 4px; }
-  .field .unit { font-size: 12px; color: var(--secondary-text-color); margin-left: 6px; }
-  .field.invalid input, .field.invalid select { border-color: var(--error-color, #db4437); }
-  .field .err { color: var(--error-color, #db4437); font-size: 12px; margin-top: 4px; }
-  .form-error { color: var(--error-color, #db4437); font-size: 14px; min-height: 18px; margin: 4px 0 8px; word-break: break-word; }
-  .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
-  details.advanced { border-top: 1px solid var(--divider-color, #ddd); margin: 8px 0 12px; padding-top: 8px; }
-  details.advanced > summary { cursor: pointer; color: var(--primary-color); padding: 6px 0; font-size: 14px; }
-  .dialog h3 { margin: 12px 0 8px; font-size: 14px; font-weight: 500; color: var(--secondary-text-color); }
-  .status .hint2 { display: block; font-size: 12px; margin-top: 4px; font-style: italic; }
+  ha-dialog { --mdc-dialog-min-width: min(560px, 92vw); --mdc-dialog-max-width: 600px; }
+  .choices { display: flex; flex-direction: column; gap: 8px; }
+  .choices ha-button { width: 100%; }
+  .dialog-hint { color: var(--secondary-text-color); font-size: 14px; margin: 0 0 12px; }
+  .dialog-title { margin: 16px 0 8px; font-size: 14px; font-weight: 500; color: var(--secondary-text-color); }
+  ha-alert { display: block; margin-bottom: 12px; }
+  ha-alert[hidden] { display: none; }
   @media (max-width: 520px) { .power { display: none; } .summary .value { font-size: 20px; } header { flex-wrap: wrap; } }
 `;
 
 const GRIP =
   '<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M9 3h2v2H9V3m4 0h2v2h-2V3M9 7h2v2H9V7m4 0h2v2h-2V7m-4 4h2v2H9v-2m4 0h2v2h-2v-2m-4 4h2v2H9v-2m4 0h2v2h-2v-2m-4 4h2v2H9v-2m4 0h2v2h-2v-2Z"/></svg>';
 
+const CHEVRON_UP = "M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z";
+const CHEVRON_DOWN = "M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z";
+const MDI_PENCIL = "M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z";
+const MDI_DELETE = "M19,4H15.5L14.5,3H9.5L8.5,4H5V6H19M6,19A2,2 0 0,0 8,21H16A2,2 0 0,0 18,19V7H6V19Z";
 const PENCIL =
   '<svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25Z"/></svg>';
 const TRASH =
@@ -269,12 +245,10 @@ class SolarPrioPanel extends HTMLElement {
   }
 
   _toast(message, ok = false) {
-    const el = document.createElement("div");
-    el.className = ok ? "toast ok" : "toast";
-    el.setAttribute("role", "alert");
-    el.textContent = message;
-    this.shadowRoot.appendChild(el);
-    setTimeout(() => el.remove(), ok ? 6000 : 4000);
+    // Home Assistant's own notification bar
+    this.dispatchEvent(
+      new CustomEvent("hass-notification", { detail: { message, duration: ok ? 6000 : 10000 }, bubbles: true, composed: true }),
+    );
   }
 
   // ---- actions -------------------------------------------------------
@@ -420,7 +394,7 @@ class SolarPrioPanel extends HTMLElement {
     let body;
 
     if (this._notConfigured) {
-      body = `<div class="card empty">${t.notConfigured}</div>`;
+      body = `<ha-card><div class="empty">${t.notConfigured}</div></ha-card>`;
     } else if (!s) {
       body = "";
     } else {
@@ -437,34 +411,34 @@ class SolarPrioPanel extends HTMLElement {
             </div>
             <div class="power"></div>
             <div class="arrows">
-              <button class="icon up" data-index="${i}" aria-label="${t.up}" title="${t.up}" ${i === 0 ? "disabled" : ""}>▲</button>
-              <button class="icon down" data-index="${i}" aria-label="${t.down}" title="${t.down}" ${i === s.devices.length - 1 ? "disabled" : ""}>▼</button>
+              <ha-icon-button class="up" data-index="${i}" data-path="${CHEVRON_UP}" label="${t.up}" title="${t.up}" ${i === 0 ? "disabled" : ""}></ha-icon-button>
+              <ha-icon-button class="down" data-index="${i}" data-path="${CHEVRON_DOWN}" label="${t.down}" title="${t.down}" ${i === s.devices.length - 1 ? "disabled" : ""}></ha-icon-button>
             </div>
-            <button class="icon edit" data-index="${i}" aria-label="${t.edit} ${esc(d.name)}" title="${t.edit}">${PENCIL}</button>
-            <button class="icon remove" data-index="${i}" aria-label="${t.remove} ${esc(d.name)}" title="${t.remove}">${TRASH}</button>
-            <label class="switch"><input type="checkbox" class="dev-enabled" data-id="${esc(d.id)}" aria-label="${t.enable} ${esc(d.name)}"><span></span></label>
+            <ha-icon-button class="edit" data-index="${i}" data-path="${MDI_PENCIL}" label="${t.edit} ${esc(d.name)}" title="${t.edit}"></ha-icon-button>
+            <ha-icon-button class="remove" data-index="${i}" data-path="${MDI_DELETE}" label="${t.remove} ${esc(d.name)}" title="${t.remove}"></ha-icon-button>
+            <ha-switch class="dev-enabled" data-id="${esc(d.id)}" aria-label="${t.enable} ${esc(d.name)}"></ha-switch>
           </li>`,
         )
         .join("");
       body = `
-        <div class="card">
+        <ha-card><div class="card-content">
           <div class="summary">
             <div><div class="label">${t.available}</div><div class="value" id="available"></div></div>
             <div><div class="label">${t.routed}</div><div class="value" id="routed"></div></div>
-            <div><div class="label">${t.routing}</div>
-              <label class="switch" style="display:inline-block;margin-top:10px"><input type="checkbox" id="routing" aria-label="${t.routing}"><span></span></label></div>
+            <div><div class="label">${t.routing}</div><ha-switch id="routing" aria-label="${t.routing}"></ha-switch></div>
           </div>
           <div class="status" id="status"></div>
-        </div>
+        </div></ha-card>
         <p class="hint">${t.hint}</p>
-        ${s.devices.length ? `<ul>${rows}</ul>` : `<div class="card empty">${t.empty}</div>`}`;
+        ${s.devices.length ? `<ul>${rows}</ul>` : `<ha-card><div class="empty">${t.empty}</div></ha-card>`}`;
     }
 
     const actions =
       s && !this._notConfigured
-        ? `<button class="btn" id="btn-settings">${t.settingsBtn}</button><button class="btn primary" id="btn-add">${t.add}</button>`
+        ? `<ha-button appearance="outlined" id="btn-settings">${t.settingsBtn}</ha-button><ha-button appearance="filled" id="btn-add">${t.add}</ha-button>`
         : "";
     root.innerHTML = `<style>${STYLE}</style><div class="wrap"><header><h1>${t.title}</h1>${actions}</header>${body}</div>`;
+    root.querySelectorAll("ha-icon-button[data-path]").forEach((b) => (b.path = b.dataset.path));
     if (this._dialogEl) root.appendChild(this._dialogEl); // a dialog stays open when the list behind it is rebuilt
     this._bind();
     this._patch();
@@ -549,8 +523,8 @@ class SolarPrioPanel extends HTMLElement {
         if (e.key === "ArrowDown") { e.preventDefault(); this._move(index, 1); }
       });
     });
-    root.querySelectorAll("button.up").forEach((b) => b.addEventListener("click", () => this._move(Number(b.dataset.index), -1)));
-    root.querySelectorAll("button.down").forEach((b) => b.addEventListener("click", () => this._move(Number(b.dataset.index), 1)));
+    root.querySelectorAll(".up").forEach((b) => b.addEventListener("click", () => !b.disabled && this._move(Number(b.dataset.index), -1)));
+    root.querySelectorAll(".down").forEach((b) => b.addEventListener("click", () => !b.disabled && this._move(Number(b.dataset.index), 1)));
     root.querySelectorAll(".dev-enabled").forEach((c) => c.addEventListener("change", () => this._setEnabled(c.dataset.id, c.checked)));
     const routing = root.getElementById("routing");
     if (routing) routing.addEventListener("change", () => this._setRouting(routing.checked));
@@ -558,40 +532,55 @@ class SolarPrioPanel extends HTMLElement {
     if (add) add.addEventListener("click", () => this._openAdd());
     const settings = root.getElementById("btn-settings");
     if (settings) settings.addEventListener("click", () => this._openSettings());
-    root.querySelectorAll("button.edit").forEach((b) =>
+    root.querySelectorAll(".edit").forEach((b) =>
       b.addEventListener("click", () => {
         const d = this._state.devices[Number(b.dataset.index)];
         this._openForm(d.kind, d.id);
       }),
     );
-    root.querySelectorAll("button.remove").forEach((b) =>
+    root.querySelectorAll(".remove").forEach((b) =>
       b.addEventListener("click", () => this._confirmRemove(this._state.devices[Number(b.dataset.index)])),
     );
   }
 
-  // ---- dialogs: add, edit, remove, settings -----------------------------
+  // ---- dialogs: add, edit, remove, settings (Home Assistant's own components) --------
 
-  _openDialog(title, bodyHtml) {
+  _openDialog(title) {
     this._closeDialog(false);
-    const el = document.createElement("div");
-    el.className = "overlay";
-    el.innerHTML = `<div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-title"><h2 id="dlg-title">${esc(title)}</h2>${bodyHtml}</div>`;
-    el.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        this._closeDialog();
-      }
+    const dlg = document.createElement("ha-dialog");
+    dlg.heading = title;
+    dlg.scrimClickAction = ""; // a click outside must not lose what was typed
+    dlg.open = true;
+    dlg.addEventListener("closed", (ev) => {
+      if (ev.target !== dlg || this._dialogEl !== dlg) return; // Escape or the close button
+      this._dialogEl = null;
+      dlg.remove();
+      if (this._returnFocus && this._returnFocus.isConnected) this._returnFocus.focus();
     });
     this._returnFocus = this.shadowRoot.activeElement;
-    this._dialogEl = el;
-    this.shadowRoot.appendChild(el);
-    return el;
+    this._dialogEl = dlg;
+    this.shadowRoot.appendChild(dlg);
+    return dlg;
   }
 
   _closeDialog(restoreFocus = true) {
-    if (this._dialogEl) this._dialogEl.remove();
+    const dlg = this._dialogEl;
     this._dialogEl = null;
+    if (dlg) {
+      dlg.open = false;
+      dlg.remove();
+    }
     if (restoreFocus && this._returnFocus && this._returnFocus.isConnected) this._returnFocus.focus();
+  }
+
+  _button(text, { slot, appearance, variant, onClick }) {
+    const b = document.createElement("ha-button");
+    if (slot) b.slot = slot;
+    if (appearance) b.setAttribute("appearance", appearance);
+    if (variant) b.setAttribute("variant", variant);
+    b.textContent = text;
+    b.addEventListener("click", onClick);
+    return b;
   }
 
   _afterChange(message) {
@@ -608,19 +597,39 @@ class SolarPrioPanel extends HTMLElement {
       this._toast(t.loadFailed);
       return;
     }
-    const presets = (form.presets || [])
-      .map((p) => `<button class="btn kind primary" data-kind="${esc(p.kind)}" data-preset="${esc(p.id)}">${esc(p.label)}</button>`)
-      .join("");
-    const kinds = Object.entries(form.kinds)
-      .map(([k, label]) => `<button class="btn kind" data-kind="${esc(k)}">${esc(label)}</button>`)
-      .join("");
-    const el = this._openDialog(
-      t.addTitle,
-      `<p class="hint">${t.chooseType}</p>${presets ? `<h3>${t.presetsTitle}</h3>${presets}<h3>${t.otherTypes}</h3>` : ""}${kinds}<div class="actions"><button class="btn cancel">${t.cancel}</button></div>`,
+    const dlg = this._openDialog(t.addTitle);
+    const box = document.createElement("div");
+    const hint = document.createElement("p");
+    hint.className = "dialog-hint";
+    hint.textContent = t.chooseType;
+    box.appendChild(hint);
+    const group = (title, items) => {
+      if (!items.length) return;
+      if (title) {
+        const h = document.createElement("div");
+        h.className = "dialog-title";
+        h.textContent = title;
+        box.appendChild(h);
+      }
+      const list = document.createElement("div");
+      list.className = "choices";
+      items.forEach((b) => list.appendChild(b));
+      box.appendChild(list);
+    };
+    const presets = (form.presets || []).map((p) => {
+      // a brand model says honestly how far it was checked
+      const status = p.status === "verified" || p.brand === "Generic" ? "" : ` · ${t.profileStatus[p.status] || p.status}`;
+      const b = this._button(p.label + status, { appearance: "filled", onClick: () => this._openForm(p.kind, null, p.id) });
+      if (p.notes) b.title = p.notes;
+      return b;
+    });
+    const kinds = Object.entries(form.kinds).map(([k, label]) =>
+      this._button(label, { appearance: "outlined", onClick: () => this._openForm(k, null) }),
     );
-    el.querySelectorAll(".kind").forEach((b) => b.addEventListener("click", () => this._openForm(b.dataset.kind, null, b.dataset.preset || null)));
-    el.querySelector(".cancel").addEventListener("click", () => this._closeDialog());
-    el.querySelector(".kind").focus();
+    group(presets.length ? t.presetsTitle : "", presets);
+    group(presets.length ? t.otherTypes : "", kinds);
+    dlg.appendChild(box);
+    dlg.appendChild(this._button(t.cancel, { slot: "secondaryAction", appearance: "plain", onClick: () => this._closeDialog() }));
   }
 
   async _openForm(kind, deviceId, preset = null) {
@@ -635,7 +644,7 @@ class SolarPrioPanel extends HTMLElement {
     this._formDialog({
       title: `${deviceId ? t.editTitle : t.addTitle} · ${form.kinds[kind] || kind}`,
       fields: form.fields,
-      values: deviceId || preset ? form.values : {},  // a model brings its values; a plain addition starts from the defaults
+      values: deviceId || preset ? form.values : {}, // a model brings its values; a plain addition starts from the defaults
       save: (values) => this._call({ type: "solarprio/device_save", kind, device_id: deviceId || undefined, values }),
       done: t.saved,
     });
@@ -661,137 +670,134 @@ class SolarPrioPanel extends HTMLElement {
 
   _confirmRemove(device) {
     const t = this._t;
-    const el = this._openDialog(
-      t.remove,
-      `<p>${esc(t.confirmRemove.replace("{name}", device.name))}</p><div class="actions"><button class="btn cancel">${t.cancel}</button><button class="btn danger ok">${t.remove}</button></div>`,
+    const dlg = this._openDialog(t.remove);
+    const p = document.createElement("p");
+    p.textContent = t.confirmRemove.replace("{name}", device.name);
+    dlg.appendChild(p);
+    dlg.appendChild(this._button(t.cancel, { slot: "secondaryAction", appearance: "plain", onClick: () => this._closeDialog() }));
+    dlg.appendChild(
+      this._button(t.remove, {
+        slot: "primaryAction",
+        appearance: "filled",
+        variant: "danger",
+        onClick: async () => {
+          try {
+            await this._call({ type: "solarprio/device_remove", device_id: device.id });
+          } catch (_) {
+            this._toast(t.error);
+            return;
+          }
+          this._closeDialog(false);
+          this._afterChange(t.removed);
+        },
+      }),
     );
-    el.querySelector(".cancel").addEventListener("click", () => this._closeDialog());
-    el.querySelector(".ok").addEventListener("click", async () => {
-      try {
-        await this._call({ type: "solarprio/device_remove", device_id: device.id });
-      } catch (_) {
-        this._toast(t.error);
-        return;
-      }
-      this._closeDialog(false);
-      this._afterChange(t.removed);
-    });
-    el.querySelector(".cancel").focus();
   }
 
-  /** A form generated from the field definitions of the server (the same ones as Home Assistant's own form). */
+  /** A form built from the field definitions of the server, drawn by Home Assistant's own form (ha-form). */
   _formDialog({ title, fields, values, save, done }) {
     const t = this._t;
-    const entities = Object.keys((this._hass && this._hass.states) || {});
-    const control = (f, v) => {
-      const id = `f-${f.name}`;
-      if (f.type === "select") {
-        const options = f.options
-          .map((o) => `<option value="${esc(o)}" ${String(v) === o ? "selected" : ""}>${esc(t.opt[o] || o)}</option>`)
-          .join("");
-        return `<select id="${id}">${options}</select>`;
-      }
-      if (f.type === "boolean") {
-        return `<label class="switch" style="display:inline-block"><input type="checkbox" id="${id}" ${v ? "checked" : ""}><span></span></label>`;
-      }
+    const dlg = this._openDialog(title);
+    const selectorFor = (f) => {
+      if (f.type === "entity") return { entity: { domain: f.domains } };
       if (f.type === "number") {
-        const attrs = `${f.min != null ? ` min="${f.min}"` : ""}${f.max != null ? ` max="${f.max}"` : ""}`;
-        return `<input type="number" step="any" id="${id}"${attrs} value="${esc(v ?? "")}">${f.unit ? `<span class="unit">${esc(f.unit)}</span>` : ""}`;
+        const n = { step: "any", mode: "box" };
+        if (f.min != null) n.min = f.min;
+        if (f.max != null) n.max = f.max;
+        if (f.unit) n.unit_of_measurement = f.unit;
+        return { number: n };
       }
-      if (f.type === "entity") {
-        const prefix = f.domains.map((d) => `${d}.`);
-        const list = entities
-          .filter((e) => prefix.some((p) => e.startsWith(p)))
-          .sort()
-          .map((e) => {
-            const st = this._hass.states[e];
-            const name = (st && st.attributes && st.attributes.friendly_name) || "";
-            return `<option value="${esc(e)}" label="${esc(name)}"></option>`;
-          })
-          .join("");
-        return `<input type="text" id="${id}" list="dl-${f.name}" autocomplete="off" spellcheck="false" placeholder="${esc(f.domains[0])}.…" value="${esc(v ?? "")}"><datalist id="dl-${f.name}">${list}</datalist>`;
+      if (f.type === "select") return { select: { mode: "dropdown", options: f.options.map((o) => ({ value: o, label: t.opt[o] || o })) } };
+      if (f.type === "boolean") return { boolean: {} };
+      return { text: {} };
+    };
+    const needed = (f) => f.required && (f.default === null || f.default === undefined || f.default === "");
+    let current = {};
+    fields.forEach((f) => {
+      const v = values[f.name] ?? f.default;
+      if (v !== undefined && v !== null && v !== "") current[f.name] = v;
+    });
+    let errors = {};
+    let openAdvanced = false;
+    const visible = (f, d) => !f.show_if || String(d[f.show_if[0]]) === f.show_if[1];
+    const schemaFor = (d) => {
+      const item = (f) => ({ name: f.name, required: needed(f), selector: selectorFor(f) });
+      const schema = fields.filter((f) => !f.advanced && visible(f, d)).map(item);
+      const advanced = fields.filter((f) => f.advanced && visible(f, d)).map(item);
+      if (advanced.length) {
+        const group = { type: "expandable", name: "advanced", title: t.advanced, flatten: true, schema: advanced };
+        if (openAdvanced) group.expanded = true;
+        schema.push(group);
       }
-      return `<input type="text" id="${id}" autocomplete="off" value="${esc(v ?? "")}">`;
+      return schema;
     };
-    const row = (f) => {
-      const v = values[f.name] ?? f.default ?? "";
-      const show = f.show_if ? ` data-show-name="${esc(f.show_if[0])}" data-show-value="${esc(f.show_if[1])}"` : "";
-      return `<div class="field" data-field="${esc(f.name)}"${show}>
-          <label class="lab" for="f-${esc(f.name)}">${esc(f.label)}${f.required && f.default == null ? " *" : ""}</label>
-          ${control(f, v)}
-          ${f.description ? `<div class="help">${esc(f.description)}</div>` : ""}
-          <div class="err" role="alert"></div>
-        </div>`;
-    };
-    const advancedRows = fields.filter((f) => f.advanced).map(row).join("");
-    const rows =
-      fields.filter((f) => !f.advanced).map(row).join("") +
-      (advancedRows ? `<details class="advanced"><summary>${t.advanced}</summary>${advancedRows}</details>` : "");
-    const el = this._openDialog(
-      title,
-      `<form novalidate>${rows}<div class="form-error" role="alert"></div><div class="actions"><button type="button" class="btn cancel">${t.cancel}</button><button type="submit" class="btn primary">${t.save}</button></div></form>`,
-    );
-    const form = el.querySelector("form");
-    const input = (name) => el.querySelector(`#f-${CSS.escape(name)}`);
-    const wrap = (name) => el.querySelector(`[data-field="${CSS.escape(name)}"]`);
-    const current = (name) => {
-      const i = input(name);
-      return i ? (i.type === "checkbox" ? i.checked : i.value) : undefined;
-    };
-    const visibility = () =>
-      el.querySelectorAll("[data-show-name]").forEach((w) => {
-        w.hidden = String(current(w.dataset.showName)) !== w.dataset.showValue;
-      });
-    form.addEventListener("change", visibility);
-    visibility();
+    const shapeOf = (d) => fields.filter((f) => visible(f, d)).map((f) => f.name).join(",");
 
-    el.querySelector(".cancel").addEventListener("click", () => this._closeDialog());
-    form.addEventListener("submit", async (ev) => {
-      ev.preventDefault();
-      const out = {};
-      let first = null;
-      fields.forEach((f) => {
-        const w = wrap(f.name);
-        w.classList.remove("invalid");
-        w.querySelector(".err").textContent = "";
-        if (w.hidden) return;
-        const i = input(f.name);
-        let v;
-        if (f.type === "boolean") v = i.checked;
-        else if (f.type === "number") v = i.value === "" ? undefined : Number(i.value);
-        else v = i.value.trim();
-        if ((v === undefined || v === "") && f.required) {
-          w.classList.add("invalid");
-          w.querySelector(".err").textContent = t.required;
-          const group = w.closest("details");
-          if (group) group.open = true;
-          first = first || i;
-        } else if (v !== undefined && v !== "") {
-          out[f.name] = v;
-        }
-      });
-      const errBox = el.querySelector(".form-error");
-      errBox.textContent = "";
-      if (first) {
-        first.focus();
-        return;
+    const alert = document.createElement("ha-alert");
+    alert.setAttribute("alert-type", "error");
+    alert.hidden = true;
+    const form = document.createElement("ha-form");
+    form.hass = this._hass;
+    form.data = current;
+    form.schema = schemaFor(current);
+    form.computeLabel = (s) => (fields.find((f) => f.name === s.name) || {}).label || s.name;
+    form.computeHelper = (s) => (fields.find((f) => f.name === s.name) || {}).description || "";
+    form.computeError = (error) => error; // the form passes the message of the field, then its schema
+    let shape = shapeOf(current);
+    form.addEventListener("value-changed", (ev) => {
+      ev.stopPropagation();
+      current = ev.detail.value || {};
+      form.data = current;
+      if (shapeOf(current) !== shape) {
+        shape = shapeOf(current);
+        form.schema = schemaFor(current);
       }
-      const button = form.querySelector("button[type=submit]");
-      button.disabled = true;
+    });
+    dlg.appendChild(alert);
+    dlg.appendChild(form);
+    dlg.appendChild(this._button(t.cancel, { slot: "secondaryAction", appearance: "plain", onClick: () => this._closeDialog() }));
+    const saveBtn = this._button(t.save, { slot: "primaryAction", appearance: "filled", onClick: () => submit() });
+    dlg.appendChild(saveBtn);
+
+    const fail = (field, message) => {
+      errors[field] = message;
+      const f = fields.find((x) => x.name === field);
+      if (f && f.advanced) openAdvanced = true;
+    };
+    const submit = async () => {
+      errors = {};
+      alert.hidden = true;
+      const out = {};
+      fields.forEach((f) => {
+        if (!visible(f, current)) return;
+        const v = current[f.name];
+        const empty = v === undefined || v === null || v === "" || (typeof v === "number" && Number.isNaN(v));
+        if (empty) {
+          if (needed(f)) fail(f.name, t.required);
+          return;
+        }
+        out[f.name] = typeof v === "string" ? v.trim() : v;
+      });
+      form.error = { ...errors };
+      if (openAdvanced) form.schema = schemaFor(current);
+      if (Object.keys(errors).length) return;
+      saveBtn.disabled = true;
       this._busy = true;
       let result;
       try {
         result = await save(out);
       } catch (err) {
-        errBox.textContent = `${t.saveFailed}: ${(err && err.message) || (err && err.code) || ""}`;
-        const bad = err && err.code === "invalid_settings" && wrap(err.message);
-        if (bad) {
-          bad.classList.add("invalid");
-          const group = bad.closest("details");
-          if (group) group.open = true;
-          input(err.message).focus();
+        const field = err && err.code === "invalid_settings" && fields.find((f) => f.name === err.message);
+        // always in the alert at the top: a field inside the folded advanced section could not show its own message
+        alert.textContent = field
+          ? `${t.saveFailed}: ${t.invalid} · ${field.label}`
+          : `${t.saveFailed}: ${(err && err.message) || (err && err.code) || ""}`;
+        alert.hidden = false;
+        if (field && field.advanced) {
+          openAdvanced = true;
+          form.schema = schemaFor(current);
         }
-        button.disabled = false;
+        saveBtn.disabled = false;
         return;
       } finally {
         this._busy = false;
@@ -799,9 +805,7 @@ class SolarPrioPanel extends HTMLElement {
       this._closeDialog(false);
       this._afterChange(done);
       ((result && result.warnings) || []).forEach((w) => t.warnings[w] && this._toast(t.warnings[w]));
-    });
-    const firstInput = el.querySelector("input, select");
-    if (firstInput) firstInput.focus();
+    };
   }
 }
 

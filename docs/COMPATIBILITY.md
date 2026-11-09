@@ -22,6 +22,17 @@ is verified on real hardware yet: it was developed with simulated devices. To ch
 | Standalone runtime: MQTT in/out, HTTP out | Simulated | Python test broker (amqtt); not Mosquitto |
 | Docker image | Wanted | Never built yet |
 
+## Profiles (by brand and model)
+
+Ready-made models in [PROFILES.md](PROFILES.md). The status is the one stored in the profile file.
+
+| Profile | Brand / model | Status |
+|---|---|---|
+| `generic-water-heater-dimmer` | Generic: water heater behind a solar router | Simulated |
+| `generic-water-heater-relay` | Generic: water heater on a relay or contactor | Simulated |
+| `victron-evcs` | Victron EV Charging Station (GX device, MQTT) | Simulated, from docs |
+| `victron-grid` | Victron grid power per phase (GX device, MQTT) | Simulated, from docs; sign to verify |
+
 ## Hardware
 
 | Hardware | Status | Where |
@@ -34,7 +45,8 @@ is verified on real hardware yet: it was developed with simulated devices. To ch
 
 ## Wanted
 
-Nothing below has been tried; each is a good first contribution. They are ideas, not claims that they work.
+Nothing below has been tried; each is a good first contribution, ideally as a [profile](PROFILES.md). They are ideas, not
+claims that they work: no profile exists for them yet.
 
 - Relays and plugs from common vendors (Shelly, Tasmota, Zigbee/Matter plugs) as on/off loads.
 - Solar routers other than the ESPHome one (F1ATB and similar): command and measurement recipe.

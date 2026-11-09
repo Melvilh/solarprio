@@ -13,6 +13,7 @@ from homeassistant.core import HomeAssistant, callback
 from .const import CONF_DEVICES, DOMAIN, PANEL_STATIC_URL, PANEL_URL_PATH
 from .coordinator import SolarPrioCoordinator
 from .core import DeviceKind
+from .core.profiles import localized
 from .forms import PRESETS, Field, clean_device, clean_site, device_fields, merge_device, site_fields
 
 PANEL_JS = Path(__file__).parent / "frontend" / "panel.js"
@@ -175,7 +176,8 @@ async def ws_device_form(hass: HomeAssistant, connection: websocket_api.ActiveCo
     if msg.get("preset") and not values:  # a new device that starts from a ready-made set of values
         values = dict(PRESETS[msg["preset"]]["values"])
     presets = [
-        {"id": p, "kind": spec["kind"], "label": translations.get(f"component.{DOMAIN}.selector.device_preset.options.{p}") or p}
+        {"id": p, "kind": spec["kind"], "label": localized(spec["label"], msg["language"]), "brand": spec["brand"],
+         "status": spec["status"], "notes": localized(spec["notes"], msg["language"]) if isinstance(spec["notes"], dict) else spec["notes"]}
         for p, spec in PRESETS.items()
     ]
     connection.send_result(msg["id"], {"fields": fields, "values": values, "kinds": kinds, "presets": presets})

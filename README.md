@@ -31,6 +31,9 @@ This software switches electrical loads. It is **not a safety device** and comes
 - **Central regulation:** all the decisions are in solarprio (tank temperatures, off-peak, sanitary minimum, subscription
   cap, smooth ramps, emergency cut), for every heater and variable load at once; a low-cost solar router only has to be an
   actuator. Ready-made models for water heaters. See [docs/REGULATION.md](docs/REGULATION.md).
+- **Ready-made models by brand:** a catalog of profiles (Victron EV Charging Station and grid measurement, generic water
+  heaters), each saying honestly how far it was verified. Anyone can add one with a JSON file, no code: see
+  [docs/PROFILES.md](docs/PROFILES.md).
 - **Many devices:** any number, started together when the surplus allows; setup pre-filled from the Home Assistant Energy
   dashboard, with import and copy of devices. See [docs/MANY_DEVICES.md](docs/MANY_DEVICES.md).
 - **Off-peak top-up:** during your off-peak hours a device is fed from the grid until it stops consuming (a hot water
@@ -62,7 +65,7 @@ Manual install: copy `custom_components/solarprio` to your Home Assistant `confi
 and restart.
 
 Setup: pick the grid power sensor (positive = export; or production + consumption sensors), then use
-**Configure** to add devices. Choose the type first, then fill the form for that type. A **solarprio**
+**Configure** to add devices. Pick a ready-made model or a type, then fill the form (entity pickers, same look as Home Assistant). A **solarprio**
 entry appears in the sidebar (admins only) to order devices by drag and drop (mouse, touch, or the arrows),
 enable or disable each device, and turn routing on or off.
 
@@ -107,8 +110,8 @@ Behaviours worth knowing:
 
 ## Hardware notes
 
-- **Victron** (GX device, Multi / Quattro, EV Charging Station): see [docs/VICTRON.md](docs/VICTRON.md) and
-  `config.victron.example.toml`. Built from Victron's documentation and tested only against a simulated GX device.
+- **Victron** (GX device, Multi / Quattro, EV Charging Station): see [docs/VICTRON.md](docs/VICTRON.md),
+  `config.victron.example.toml` and the profiles `victron-grid` / `victron-evcs` (`examples/victron-profile.toml`). Built from Victron's documentation and tested only against a simulated GX device.
 
 - **ESPHome solar router** (triac / SSR for a water heater): see [docs/ESPHOME_ROUTER.md](docs/ESPHOME_ROUTER.md) for
   letting solarprio set its power, with a watchdog. Checked with `esphome config`; the C++ was not compiled and nothing
@@ -143,8 +146,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/ARCHITECTURE.md](docs/ARCHITECT
 
 ## Make it work with your hardware
 
-The project is meant to grow with what people own. A tested configuration and a short page is already a contribution
-(no code needed): [docs/ADDING_COMPATIBILITY.md](docs/ADDING_COMPATIBILITY.md). What is known to work, and how well it
+The project is meant to grow with what people own. A brand- or model-specific profile (one JSON file) or a tested
+configuration and a short page is already a contribution (no code needed): [docs/PROFILES.md](docs/PROFILES.md),
+[docs/ADDING_COMPATIBILITY.md](docs/ADDING_COMPATIBILITY.md). What is known to work, and how well it
 was verified: [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md). Ideas and open work: [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## License

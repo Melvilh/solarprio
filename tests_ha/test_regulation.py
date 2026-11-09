@@ -228,8 +228,14 @@ async def test_the_presets_fill_a_new_water_heater_form_and_pass_the_validation(
         for language, expected in (("fr", "Chauffe-eau sur routeur solaire"), ("en", "Water heater on a solar router")):
             first = (await ws(client, type="solarprio/device_form", kind="on_off", language=language))["result"]
             assert [p["id"] for p in first["presets"]] == list(PRESETS)
-            assert expected in next(p["label"] for p in first["presets"] if p["id"] == "water_heater_dimmer")
+            assert expected in next(p["label"] for p in first["presets"] if p["id"] == "generic-water-heater-dimmer")
+        assert {"victron-evcs", "generic-water-heater-relay"} <= set(PRESETS)
         for preset, spec in PRESETS.items():
+            if spec["kind"] == "ev_charger":  # a brand model: its values are fields of the form, the entities stay to be picked
+                form = (await ws(client, type="solarprio/device_form", kind="ev_charger", preset=preset, language="en"))["result"]
+                assert set(form["values"]) <= {f["name"] for f in form["fields"]}
+                assert next(p for p in form["presets"] if p["id"] == preset)["brand"] == "Victron Energy"
+                continue
             result = (await ws(client, type="solarprio/device_form", kind=spec["kind"], preset=preset, language="fr"))["result"]
             assert result["values"]["temp_max_solar"] == 65 and result["values"]["temp_min"] == 40
             names = {f["name"] for f in result["fields"]}
@@ -237,7 +243,7 @@ async def test_the_presets_fill_a_new_water_heater_form_and_pass_the_validation(
             # with an entity, a power and a temperature sensor added, the preset is a valid device
             clean_device(spec["kind"], {**result["values"], "name": "ECS", "entity_id": SETPOINT if spec["kind"] == "proportional" else "switch.ecs",
                                         "priority": 1, "power_w": 2400, "temp_entity": TEMP})
-        proportional = (await ws(client, type="solarprio/device_form", kind="proportional", preset="water_heater_dimmer"))["result"]["values"]
+        proportional = (await ws(client, type="solarprio/device_form", kind="proportional", preset="generic-water-heater-dimmer"))["result"]["values"]
         assert (proportional["hold_s"], proportional["ramp_up_w"], proportional["deadband_w"]) == (8, 200, 15)
         unknown = await ws(client, type="solarprio/device_form", kind="proportional", preset="toaster")
         assert not unknown["success"]

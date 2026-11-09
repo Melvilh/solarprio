@@ -1,0 +1,43 @@
+{
+  "id": "generic-water-heater-dimmer",
+  "brand": "Generic",
+  "model": "Water heater on a solar router (dimmer, adjustable power)",
+  "category": "water_heater",
+  "target": "device",
+  "status": "simulated",
+  "docs": "docs/WATER_HEATER_EXAMPLE.md",
+  "label": {
+    "en": "Water heater on a solar router (dimmer, adjustable power)",
+    "fr": "Chauffe-eau sur routeur solaire (gradateur, puissance réglable)"
+  },
+  "notes": "Usual values for a domestic water heater: starting points, check them with your installer.",
+  "runtime": {
+    "kind": "proportional",
+    "min_power_w": 15,
+    "min_on_s": 30,
+    "min_off_s": 30,
+    "temp_max_solar": 65,
+    "temp_max_offpeak": 60,
+    "temp_hysteresis": 3,
+    "temp_min": 40,
+    "hold_s": 8,
+    "ramp_up_w": 200,
+    "deadband_w": 15
+  },
+  "ha": {
+    "kind": "proportional",
+    "values": {
+      "scale": "watts",
+      "min_power_w": 15,
+      "min_on_s": 30,
+      "min_off_s": 30,
+      "temp_max_solar": 65,
+      "temp_max_offpeak": 60,
+      "temp_hysteresis": 3,
+      "temp_min": 40,
+      "hold_s": 8,
+      "ramp_up_w": 200,
+      "deadband_w": 15
+    }
+  }
+}

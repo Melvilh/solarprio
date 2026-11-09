@@ -1,0 +1,105 @@
+{
+  "id": "victron-evcs",
+  "brand": "Victron Energy",
+  "model": "EV Charging Station (through a GX device, MQTT)",
+  "category": "ev_charger",
+  "target": "device",
+  "status": "simulated",
+  "docs": "docs/VICTRON.md",
+  "label": {
+    "en": "Victron EV Charging Station (GX device, MQTT)",
+    "fr": "Victron EV Charging Station (GX, MQTT)"
+  },
+  "notes": "Built from Victron's documentation and exercised against a simulated GX device only. The charger must be in Manual mode.",
+  "params": [
+    {
+      "name": "portal_id",
+      "required": true,
+      "description": {
+        "en": "VRM portal ID of the GX device (see the N/ topics)",
+        "fr": "Identifiant de portail VRM du GX (voir les topics N/)"
+      }
+    },
+    {
+      "name": "instance",
+      "required": true,
+      "description": {
+        "en": "Device instance of the charger (N/<portal>/evcharger/<instance>/...)",
+        "fr": "Instance de la borne (N/<portail>/evcharger/<instance>/...)"
+      }
+    },
+    {
+      "name": "phases",
+      "default": 1,
+      "description": {
+        "en": "1 or 3: what your installation really uses",
+        "fr": "1 ou 3 : ce que votre installation utilise vraiment"
+      }
+    },
+    {
+      "name": "min_current_a",
+      "default": 6,
+      "description": {
+        "en": "Minimum charging current of your charger (/MinCurrent)",
+        "fr": "Courant minimal de votre borne (/MinCurrent)"
+      }
+    },
+    {
+      "name": "max_current_a",
+      "default": 16,
+      "description": {
+        "en": "Maximum charging current you allow",
+        "fr": "Courant maximal que vous autorisez"
+      }
+    }
+  ],
+  "runtime": {
+    "kind": "ev_charger",
+    "phases": "${phases}",
+    "voltage_v": 230,
+    "min_current_a": "${min_current_a}",
+    "max_current_a": "${max_current_a}",
+    "min_on_s": 300,
+    "start_margin_w": 100,
+    "actuator": {
+      "type": "mqtt",
+      "topic": "W/${portal_id}/evcharger/${instance}/SetCurrent",
+      "payload_template": "{\"value\": {value}}",
+      "switch_topic": "W/${portal_id}/evcharger/${instance}/StartStop",
+      "payload_on": "{\"value\": 1}",
+      "payload_off": "{\"value\": 0}"
+    },
+    "readings": {
+      "field": "value",
+      "connected_topic": "N/${portal_id}/evcharger/${instance}/Status",
+      "disconnected_values": [
+        "0"
+      ],
+      "connected_values": [
+        "1",
+        "2",
+        "3",
+        "4",
+        "5",
+        "6",
+        "7",
+        "21",
+        "22",
+        "23",
+        "24"
+      ],
+      "measured_topic": "N/${portal_id}/evcharger/${instance}/Ac/Power"
+    }
+  },
+  "ha": {
+    "kind": "ev_charger",
+    "values": {
+      "phases": 1,
+      "voltage_v": 230,
+      "min_current_a": 6,
+      "max_current_a": 16,
+      "min_on_s": 300,
+      "start_margin_w": 100
+    }
+  }
+}

@@ -6,6 +6,11 @@ and the project uses [Semantic Versioning](https://semver.org/).
 ## [0.2.0] - Unreleased
 
 ### Added
+- **Profile catalog** (`src/solarprio/profiles`): ready-made devices by brand and model as JSON files: Victron EV Charging
+  Station, Victron grid power (with the keep-alive), generic water heaters. Docker: `profile = "..."` and `params` in
+  `[source]` and `[[device]]`, local values win. Home Assistant: the profiles with an `ha` section are the models offered by
+  *Add a device*, with their verification status. Guide `docs/PROFILES.md`; `examples/victron-profile.toml` gives the same
+  configuration as `config.victron.example.toml` (tested).
 - **Central regulation**: the engine now decides tank temperatures (solar and off-peak maximums, hysteresis), a sanitary
   minimum fed from the grid, a dynamic subscription cap for everything fed from the grid on purpose, smooth ramps (wait after
   a change, largest step, dead band), an emergency cut on grid import, and "surplus only". Settings are per device; the
@@ -16,6 +21,8 @@ and the project uses [Semantic Versioning](https://semver.org/).
 - Off-peak windows and a tariff signal can be combined (both must say off-peak); `HC*` style wildcard in the states.
 
 ### Changed
+- The panel now uses Home Assistant's own components (dialog, entity pickers with search, fields, buttons, switches,
+  notifications), so forms look and behave like the rest of Home Assistant.
 - The measurement delay can be 0 (never judge by age, only by availability): a sensor that does not repeat an unchanged value
   no longer makes the measurement look lost.
 - A grid-fed device cut by the subscription cap is cut at once: no minimum run time holds it on.

@@ -1,0 +1,53 @@
+{
+  "id": "victron-grid",
+  "brand": "Victron Energy",
+  "model": "Grid power from a GX device (MQTT, per phase)",
+  "category": "meter",
+  "target": "source",
+  "status": "simulated",
+  "docs": "docs/VICTRON.md",
+  "label": {
+    "en": "Victron grid power (GX device, MQTT)",
+    "fr": "Puissance réseau Victron (GX, MQTT)"
+  },
+  "notes": "Victron's documentation does not state the sign of the grid power: verify it (see docs/VICTRON.md). Also sets the keep-alive that Venus OS needs.",
+  "params": [
+    {
+      "name": "portal_id",
+      "required": true,
+      "description": {
+        "en": "VRM portal ID of the GX device",
+        "fr": "Identifiant de portail VRM du GX"
+      }
+    },
+    {
+      "name": "phases",
+      "default": 3,
+      "description": {
+        "en": "How many phases your installation has (a missing phase makes the whole measurement unavailable)",
+        "fr": "Nombre de phases de votre installation (une phase absente rend toute la mesure indisponible)"
+      }
+    },
+    {
+      "name": "invert",
+      "default": true,
+      "description": {
+        "en": "true if the grid power is negative while you export (the usual Victron convention): VERIFY IT",
+        "fr": "true si la puissance réseau est négative quand vous injectez (convention Victron habituelle) : À VÉRIFIER"
+      }
+    }
+  ],
+  "runtime": {
+    "mode": "export",
+    "export_topic": {
+      "$repeat": "phases",
+      "template": "N/${portal_id}/system/0/Ac/Grid/L${n}/Power"
+    },
+    "field": "value",
+    "invert": "${invert}",
+    "mqtt": {
+      "keepalive_topic": "R/${portal_id}/keepalive",
+      "keepalive_interval_s": 30
+    }
+  }
+}

@@ -1,0 +1,21 @@
+# Same as config.victron.example.toml, written with the ready-made profiles (src/solarprio/profiles/data).
+# NOT TESTED ON REAL VICTRON HARDWARE: see docs/VICTRON.md. Replace every <...> value.
+[runtime]
+interval_s = 5
+stale_after_s = 30
+on_stale = "off"
+
+[mqtt]
+host = "192.168.1.60"
+port = 1883
+
+[source]
+profile = "victron-grid"
+params = { portal_id = "<PORTAL_ID>", phases = 3, invert = true }   # VERIFY THE SIGN: docs/VICTRON.md
+
+[[device]]
+profile = "victron-evcs"
+params = { portal_id = "<PORTAL_ID>", instance = 40, phases = 1 }
+id = "evcs"
+name = "Victron EVCS"
+priority = 1

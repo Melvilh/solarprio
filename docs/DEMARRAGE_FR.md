@@ -41,6 +41,10 @@ commandée avec une lampe ou un petit radiateur), pas votre chauffe-eau.
 - Un capteur de **puissance mesurée** (facultatif, recommandé) permet de libérer le surplus quand l'appareil consomme
   moins que prévu.
 
+Dans le panneau, *Ajouter un appareil* propose d'abord des **modèles prêts à l'emploi** (chauffe-eau, borne Victron…) qui
+préremplissent les réglages usuels : il ne reste qu'à choisir les entités (liste avec recherche, comme partout dans Home
+Assistant). Chaque modèle de marque indique ce qui a été vérifié ; voir [PROFILES.md](PROFILES.md) pour en ajouter.
+
 Vous pouvez aussi tout faire **depuis le panneau solarprio** de la barre latérale : *Ajouter un appareil*, le crayon pour
 modifier, la corbeille pour supprimer, et *Réglages* pour la mesure et la sécurité (période de contrôle, délai avant
 « mesure perdue », marge d'injection…). Chaque enregistrement recharge l'intégration : les charges sont éteintes un
@@ -84,7 +88,9 @@ développement > États*, puis ajustez le délai dans *Réglages* si besoin.
 - **Heures creuses** (chauffe jusqu'à ce que l'appareil ne consomme plus), avec des plages horaires **ou** une entité
   qui indique les heures creuses (la période tarifaire du Linky, par exemple) : [OFFPEAK.md](OFFPEAK.md).
 - **Plusieurs appareils, bornes à contacteur, entreprise** : [MANY_DEVICES.md](MANY_DEVICES.md).
-- **Sans Home Assistant (Docker)** : [README](../README.md#standalone-docker-no-home-assistant) et `config.example.toml`.
+- **Sans Home Assistant (Docker)** : [README](../README.md#standalone-docker-no-home-assistant) et `config.example.toml` ;
+  pour une marque précise, écrivez `profile = "victron-evcs"` (voir [PROFILES.md](PROFILES.md)).
+- **Ajouter votre matériel** (profil, recette, adaptateur) : [ADDING_COMPATIBILITY.md](ADDING_COMPATIBILITY.md).
 
 ## 6. Désinstaller
 

@@ -4,11 +4,14 @@
 # requirements (see README). Chromium is expected at $CHROMIUM (default /opt/pw-browsers/chromium).
 # Screenshots are written to $E2E_OUT (default: a temp dir, printed at the end).
 set -eu
+HA_PID=
+cleanup() { [ -n "$HA_PID" ] && kill "$HA_PID" 2>/dev/null || true; }  # never leave a Home Assistant running when a scenario fails
+trap cleanup EXIT
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$(mktemp -d)
 PY="$ROOT/.venv-ha/bin/python"
 cd "${E2E_OUT:-$WORK}"
-for SCENARIO in basic ev edit; do
+for SCENARIO in ${E2E_SCENARIOS:-basic ev edit}; do
   CONFIG="$WORK/config-$SCENARIO"
   mkdir -p "$CONFIG/custom_components"
   ln -s "$ROOT/custom_components/solarprio" "$CONFIG/custom_components/solarprio"

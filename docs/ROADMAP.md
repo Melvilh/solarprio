@@ -30,7 +30,10 @@ a limit elsewhere in the documentation) and of ideas that came up. Pick one, ope
 
 ## Compatibility
 
-See the "Wanted" list in [COMPATIBILITY.md](COMPATIBILITY.md).
+See the "Wanted" list in [COMPATIBILITY.md](COMPATIBILITY.md). The most useful contribution is a brand- or model-specific
+[profile](PROFILES.md): wallboxes (Zaptec, Easee, Wallbox...), heat pumps, other inverters and batteries, solar routers,
+relays (Shelly, Tasmota). Ideas for the catalog itself: profiles that bring several devices at once (a router with its two
+heaters), and a check that compares a profile's topics with a recorded device log.
 
 ## Community
 

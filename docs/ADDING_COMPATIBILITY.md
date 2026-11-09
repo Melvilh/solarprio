@@ -5,6 +5,7 @@ configuration, tested and written down, is already a contribution. Pick the leve
 
 | Level | You add | Code? | Typical example |
 |---|---|---|---|
+| 0. Profile | A brand/model file with the known topics, limits and quirks | No (one JSON file) | "Victron EVCS", "Zaptec wallbox", a specific heat pump |
 | 1. Recipe | A tested configuration and a short page | No | "Shelly relay for a boiler", "Tasmota plug", a wallbox that exposes `number` entities |
 | 2. Adapter | A new way to read a measurement or send a command in the Docker runtime | Python | Modbus, OCPP, another HTTP style |
 | 3. Device type | A new behaviour in the engine | Python + Home Assistant UI | A heat pump with several stages, a two-stage battery |
@@ -21,6 +22,24 @@ Be precise about what you tested; the project never claims more than that (see [
   meaningful time. Say which firmware/version and what you observed.
 - **Simulated**: automated tests with a simulated device or broker. Useful, but it is not hardware.
 - **From the manufacturer's documentation**: written from the docs, not run. Say so in the page.
+
+## Level 0 — a profile (the preferred way to add a brand or a model)
+
+A profile is a small JSON file that makes a specific device a one-line choice for everyone after you: in the Docker
+configuration (`profile = "..."`) and in the Home Assistant *Add a device* list. Brand- and model-specific profiles are
+welcome and are the main way the catalog should grow. The format, with a worked example, is in [PROFILES.md](PROFILES.md).
+
+1. Copy the closest profile in `src/solarprio/profiles/data/` and edit it (`brand`, `model`, topics, limits, `params`).
+2. Set `status` honestly: `from_docs` if you wrote it from the manufacturer's documentation, `simulated` if tests drive a
+   simulated device, `verified` only if you ran it on the real device and wrote down what you saw.
+3. Add an example in `examples/` using it (the test suite parses every example) and a page `docs/hardware/<brand>-<model>.md`
+   (template: [docs/hardware/_TEMPLATE.md](hardware/_TEMPLATE.md)) for what is not obvious: a keep-alive, a sign convention,
+   a mode the device must be in.
+4. Run `python scripts/sync_core.py`, `.venv/bin/pytest` and `scripts/test_ha.sh`, and add the line to
+   [COMPATIBILITY.md](COMPATIBILITY.md) (a test checks that every profile is listed there).
+
+If a device needs behaviour the engine does not have (a new protocol, a new kind of load), the profile is not enough: see
+levels 2 and 3.
 
 ## Level 1 — a recipe (no code)
 
@@ -52,6 +71,7 @@ The actuator options you can use today:
 
 **What to deliver**
 
+0. If the device is a specific brand and model, prefer a profile (level 0): a recipe is for what does not fit one.
 1. `examples/<vendor>-<model>.toml` (Docker) and/or a page `docs/hardware/<vendor>-<model>.md` (use
    [docs/hardware/_TEMPLATE.md](hardware/_TEMPLATE.md)). Every `*.toml` in `examples/` and every `config*.example.toml`
    is parsed by the test suite (`tests/test_examples.py`), so a broken example fails CI.
@@ -137,7 +157,9 @@ Assistant's language; add yours next to `en` and `fr`.
 
 ## En français (résumé)
 
-La plupart des compatibilités ne demandent **aucun code** : une configuration testée et documentée suffit (niveau 1).
+La plupart des compatibilités ne demandent **aucun code**. Le plus simple pour une marque ou un modèle précis : un **profil**
+(niveau 0, un fichier JSON dans `src/solarprio/profiles/data/`, voir [PROFILES.md](PROFILES.md)), qui devient un choix « modèle prêt à
+l'emploi » dans Home Assistant et une ligne `profile = "..."` en Docker. Sinon, une configuration testée et documentée suffit (niveau 1).
 Ouvrez un ticket « Compatibility », déposez `examples/<marque>-<modele>.toml` et/ou une fiche `docs/hardware/` d'après le
 modèle, et ajoutez une ligne dans [COMPATIBILITY.md](COMPATIBILITY.md) en disant **honnêtement** ce qui a été testé
 (matériel réel, simulé, ou d'après la documentation du fabricant). Un nouvel adaptateur (Modbus, OCPP…) ou un nouveau type

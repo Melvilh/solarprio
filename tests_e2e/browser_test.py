@@ -118,12 +118,12 @@ with sync_playwright() as p:
     print("order persisted after reload:", order())
 
     # arrow-button path
-    page.locator("solarprio-panel li.row:nth-child(3) button.up").click()
+    page.locator("solarprio-panel li.row:nth-child(3) .up").click()
     wait(lambda: order()[1] == "Serveur de calcul", 5, "arrow move")
     print("after arrow click:", order())
 
     # per-device enable switch (row 1 = pump)
-    page.locator("solarprio-panel li.row:nth-child(1) label.switch").click()
+    page.locator("solarprio-panel li.row:nth-child(1) ha-switch.dev-enabled").click()
     wait(lambda: state("input_boolean.pump") == "off", what="pump off after disabling it in the panel")
     print("pump after disabling in panel:", state("input_boolean.pump"))
 

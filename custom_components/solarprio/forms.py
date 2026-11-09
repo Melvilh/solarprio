@@ -35,6 +35,7 @@ from .const import (
 )
 from .coordinator import DEVICE_FIELDS, build_device
 from .core import DeviceKind
+from .core.profiles import ha_presets
 
 OFFPEAK_SIGNAL_DOMAINS = ("binary_sensor", "sensor", "input_boolean", "switch", "select", "input_select")
 MAX_W = 1_000_000
@@ -189,20 +190,9 @@ def site_fields() -> list[Field]:
     ]
 
 
-# Starting points for the commonest installations, so that a beginner only picks the entities. The values are the usual ones
-# for a domestic water heater on a solar router: check them against your own installation.
-PRESETS: dict[str, dict[str, Any]] = {
-    "water_heater_dimmer": {
-        "kind": DeviceKind.PROPORTIONAL.value,
-        "values": {"scale": "watts", "min_power_w": 15, "min_on_s": 30, "min_off_s": 30, "temp_max_solar": 65,
-                   "temp_max_offpeak": 60, "temp_hysteresis": 3, "temp_min": 40, "hold_s": 8, "ramp_up_w": 200, "deadband_w": 15},
-    },
-    "water_heater_relay": {
-        "kind": DeviceKind.ON_OFF.value,
-        "values": {"min_on_s": 300, "min_off_s": 300, "temp_max_solar": 65, "temp_max_offpeak": 60, "temp_hysteresis": 3,
-                   "temp_min": 40},
-    },
-}
+# Ready-made models (generic or by brand), from the profile catalog: a beginner only picks the entities. The values are the
+# usual ones: check them against your own installation.
+PRESETS: dict[str, dict[str, Any]] = ha_presets()
 
 
 # ---- validation and merging (used by the options flow and by the panel) ------------------------------------
